@@ -9,8 +9,10 @@ import { QuickActions } from "@/components/QuickActions";
 import { RecentIncidents } from "@/components/RecentIncidents";
 import { IncidentStatsChart } from "@/components/IncidentStatsChart";
 import { ActivePatrols } from "@/components/ActivePatrols";
-import { supabase } from "@/lib/supabase";
+import { supabase, testDatabaseConnection } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
+import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 
 const Dashboard = () => {
   const { profile } = useAuth();
@@ -20,6 +22,7 @@ const Dashboard = () => {
     pendingAccounts: 0
   });
   const [loading, setLoading] = useState(true);
+  const [connectionStatus, setConnectionStatus] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -55,13 +58,37 @@ const Dashboard = () => {
     fetchStats();
   }, [profile]);
 
+  const handleTestConnection = async () => {
+    setConnectionStatus("Testing...");
+    const isConnected = await testDatabaseConnection();
+    setConnectionStatus(isConnected ? "Connected ✅" : "Failed ❌");
+    toast[isConnected ? "success" : "error"](`Database connection: ${isConnected ? "Success" : "Failed"}`);
+  };
+
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="text-3xl font-bold text-lapd-navy uppercase tracking-tighter">
-        Witaj, {profile?.first_name || "Funkcjonariuszu"}!
-      </h1>
-      <p className="text-gray-700">Przeglądaj najważniejsze informacje i szybkie skróty.</p>
-      
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-3xl font-bold text-lapd-navy uppercase tracking-tighter">
+            Witaj, {profile?.first_name || "Funkcjonariuszu"}!
+          </h1>
+          <p className="text-gray-700">Przeglądaj najważniejsze informacje i szybkie skróty.</p>
+        </div>
+        <Button
+          onClick={handleTestConnection}
+          variant="outline"
+          className="border-lapd-gold text-lapd-navy hover:bg-lapd-gold"
+        >
+          Test DB Connection
+        </Button>
+      </div>
+
+      {connectionStatus && (
+        <div className={`p-3 rounded-lg text-center font-bold ${connectionStatus.includes("✅") ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}`}>
+          {connectionStatus}
+        </div>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <Card className="bg-lapd-white border-lapd-gold shadow-md">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -77,7 +104,7 @@ const Dashboard = () => {
             <p className="text-xs text-gray-500">Do zatwierdzenia przez LT+</p>
           </CardContent>
         </Card>
-        
+
         <Card className="bg-lapd-white border-lapd-gold shadow-md">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-bold text-lapd-navy uppercase">
@@ -92,7 +119,7 @@ const Dashboard = () => {
             <p className="text-xs text-gray-500">Skierowane bezpośrednio do Ciebie</p>
           </CardContent>
         </Card>
-        
+
         <Card className="bg-lapd-white border-lapd-gold shadow-md">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-bold text-lapd-navy uppercase">
@@ -107,7 +134,7 @@ const Dashboard = () => {
             <p className="text-xs text-gray-500">Aktywne i zatwierdzone konta</p>
           </CardContent>
         </Card>
-        
+
         <Card className="bg-lapd-white border-lapd-gold shadow-md">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-bold text-lapd-navy uppercase">
@@ -121,7 +148,7 @@ const Dashboard = () => {
           </CardContent>
         </Card>
       </div>
-      
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2">
           <QuickActions />
@@ -130,14 +157,14 @@ const Dashboard = () => {
           <OfficerStats />
         </div>
       </div>
-      
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <RecentIncidents />
         <ActivePatrols />
       </div>
-      
+
       <IncidentStatsChart />
-      
+
       <MadeWithDyad />
     </div>
   );
