@@ -7,11 +7,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Edit, Loader2, Shield } from "lucide-react";
+import { Edit, Loader2, Shield, Paperclip } from "lucide-react";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import { OfficerDossier } from "@/components/OfficerDossier";
 
 const PersonnelPage = () => {
   const { profile: me } = useAuth();
@@ -53,7 +54,6 @@ const PersonnelPage = () => {
     if (!editingUser) return;
     setSaving(true);
     
-    // 1. Usuń wszystkie obecne dywizje użytkownika
     const { error: deleteError } = await supabase
       .from("profile_divisions")
       .delete()
@@ -65,30 +65,24 @@ const PersonnelPage = () => {
       return;
     }
 
-    // 2. Jeśli są zaznaczone nowe, dodaj je
     if (selectedDivisions.length > 0) {
       const inserts = selectedDivisions.map(divId => ({ 
         profile_id: editingUser.id, 
         division_id: divId 
       }));
 
-      const { error: insertError } = await supabase
-        .from("profile_divisions")
-        .insert(inserts);
-
-      if (insertError) {
-        toast.error("Błąd podczas zapisu nowych dywizji: " + insertError.message);
-      } else {
-        toast.success("Dywizje zaktualizowane pomyślnie.");
+      const { error: insertError } = await supabase.from("profile_divisions").insert(inserts);
+      if (insertError) toast.error("Błąd podczas zapisu dywizji.");
+      else {
+        toast.success("Dywizje zaktualizowane.");
         setEditingUser(null);
         await fetchData();
       }
     } else {
-      toast.success("Usunięto wszystkie dywizje użytkownika.");
+      toast.success("Usunięto wszystkie dywizje.");
       setEditingUser(null);
       await fetchData();
     }
-    
     setSaving(false);
   };
 
@@ -104,7 +98,7 @@ const PersonnelPage = () => {
                 <TableHead className="text-white">Odznaka / Imię</TableHead>
                 <TableHead className="text-white">Stopień</TableHead>
                 <TableHead className="text-white">Dywizje</TableHead>
-                {isEditor && <TableHead className="text-white text-right">Zarządzaj</TableHead>}
+                <TableHead className="text-white text-right px-6">Dokumentacja</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -120,13 +114,14 @@ const PersonnelPage = () => {
                         {u.divisions.map(d => <Badge key={d.id} className="bg-lapd-gold text-lapd-navy text-[10px] uppercase font-bold">{d.name}</Badge>)}
                       </div>
                     </TableCell>
-                    {isEditor && (
-                      <TableCell className="text-right">
+                    <TableCell className="text-right px-6 space-x-2">
+                      <OfficerDossier targetOfficer={u} />
+                      {isEditor && (
                         <Button variant="ghost" size="sm" onClick={() => openEdit(u)} className="hover:bg-lapd-gold/20">
                           <Edit className="h-4 w-4" />
                         </Button>
-                      </TableCell>
-                    )}
+                      )}
+                    </TableCell>
                   </TableRow>
                 ))
               )}
@@ -137,31 +132,18 @@ const PersonnelPage = () => {
 
       <Dialog open={!!editingUser} onOpenChange={() => !saving && setEditingUser(null)}>
         <DialogContent className="border-lapd-gold">
-          <DialogHeader>
-            <DialogTitle className="text-lapd-navy uppercase font-black">
-              Edycja Dywizji: {editingUser?.first_name} {editingUser?.last_name}
-            </DialogTitle>
-          </DialogHeader>
+          <DialogHeader><DialogTitle className="text-lapd-navy uppercase font-black">Edycja Dywizji</DialogTitle></DialogHeader>
           <div className="grid gap-4 py-4">
-            <p className="text-sm text-gray-500 mb-2">Zaznacz dywizje, do których należy funkcjonariusz:</p>
             {divisions.map(d => (
-              <div key={d.id} className="flex items-center space-x-3 p-2 hover:bg-gray-50 rounded border border-transparent hover:border-lapd-gold/20 transition-colors">
-                <Checkbox 
-                  id={`div-${d.id}`} 
-                  checked={selectedDivisions.includes(d.id)}
-                  onCheckedChange={(checked) => {
-                    setSelectedDivisions(prev => checked ? [...prev, d.id] : prev.filter(id => id !== d.id));
-                  }}
-                />
+              <div key={d.id} className="flex items-center space-x-3 p-2 hover:bg-gray-50 rounded">
+                <Checkbox id={`div-${d.id}`} checked={selectedDivisions.includes(d.id)} onCheckedChange={(checked) => setSelectedDivisions(prev => checked ? [...prev, d.id] : prev.filter(id => id !== d.id))} />
                 <Label htmlFor={`div-${d.id}`} className="font-medium cursor-pointer flex-1">{d.name}</Label>
               </div>
             ))}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditingUser(null)} disabled={saving}>Anuluj</Button>
-            <Button className="bg-lapd-navy text-lapd-gold font-bold" onClick={handleSaveDivisions} disabled={saving}>
-              {saving ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : "ZAPISZ ZMIANY"}
-            </Button>
+            <Button className="bg-lapd-navy text-lapd-gold font-bold" onClick={handleSaveDivisions} disabled={saving}>ZAPISZ</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
