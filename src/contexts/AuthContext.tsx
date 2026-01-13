@@ -77,47 +77,68 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   useEffect(() => {
-    // Sprawdzenie sesji przy startcie
-    supabase.auth.getSession().then(async ({ data: { session: currentSession } }) => {
-      setSession(currentSession);
-      setUser(currentSession?.user || null);
-      if (currentSession?.user) {
-        const userProfile = await fetchUserProfile(currentSession.user.id);
-        setProfile(userProfile);
+    let isMounted = true;
+
+    const initializeAuth = async () => {
+      const { data: { session: initialSession } } = await supabase.auth.getSession();
+      
+      if (!isMounted) return;
+
+      setSession(initialSession);
+      setUser(initialSession?.user || null);
+      
+      if (initialSession?.user) {
+        const userProfile = await fetchUserProfile(initialSession.user.id);
+        if (isMounted) setProfile(userProfile);
       }
-      setLoading(false);
-    });
+      
+      if (isMounted) setLoading(false);
+    };
+
+    initializeAuth();
 
     const { data: authListener } = supabase.auth.onAuthStateChange(async (_event, currentSession) => {
+      if (!isMounted) return;
+      
       setSession(currentSession);
       setUser(currentSession?.user || null);
+      
       if (currentSession?.user) {
         const userProfile = await fetchUserProfile(currentSession.user.id);
         setProfile(userProfile);
       } else {
         setProfile(null);
       }
-      setLoading(false);
+      // Ustawienie loading na false jest kluczowe, aby aplikacja się nie zawiesiła
+      setLoading(false); 
     });
 
-    return () => authListener.subscription.unsubscribe();
+    return () => {
+      isMounted = false;
+      authListener.subscription.unsubscribe();
+    };
   }, []);
 
   const signIn = async (email: string, password: string) => {
+    setLoading(true); // Ustawienie loading na true podczas próby logowania
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    
+    // onAuthStateChange zajmie się ustawieniem loading na false i pobraniem profilu
     if (error) { 
       toast.error("Błąd logowania: " + error.message); 
+      setLoading(false); // Jeśli błąd, natychmiast resetujemy loading
       return { error }; 
     }
     
-    // Po poprawnym zalogowaniu, profil zostanie pobrany przez onAuthStateChange
     return { error: null };
   };
 
   const signUp = async (email: string, password: string, badgeNumber: string) => {
+    setLoading(true); // Ustawienie loading na true podczas próby rejestracji
     const { data, error } = await supabase.auth.signUp({ email, password });
     if (error) { 
       toast.error(error.message); 
+      setLoading(false); // Jeśli błąd, natychmiast resetujemy loading
       return { error }; 
     }
     
@@ -131,6 +152,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     });
     
     toast.info("Konto utworzone. Oczekuje na akceptację przez dowództwo.");
+    // onAuthStateChange zajmie się ustawieniem loading na false
     return { error: null };
   };
 
