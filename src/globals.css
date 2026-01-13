@@ -4,25 +4,25 @@
 
 @layer base {
   :root {
-    --background: 222 47% 5%;
+    --background: 222 47% 3%;
     --foreground: 210 40% 98%;
-    --card: 222 47% 8%;
+    --card: 222 47% 6%;
     --card-foreground: 210 40% 98%;
-    --popover: 222 47% 8%;
+    --popover: 222 47% 6%;
     --popover-foreground: 210 40% 98%;
-    --primary: 45 58% 50%;
+    --primary: 45 58% 55%;
     --primary-foreground: 222 47% 5%;
-    --secondary: 217 33% 17%;
+    --secondary: 217 33% 15%;
     --secondary-foreground: 210 40% 98%;
-    --muted: 217 33% 17%;
-    --muted-foreground: 215 20% 65%;
-    --accent: 45 58% 50%;
+    --muted: 217 33% 15%;
+    --muted-foreground: 215 20% 75%; /* Znacznie jaśniejszy */
+    --accent: 45 58% 55%;
     --accent-foreground: 222 47% 5%;
     --destructive: 0 84% 60%;
     --destructive-foreground: 210 40% 98%;
-    --border: 217 33% 17%;
-    --input: 217 33% 17%;
-    --ring: 45 58% 50%;
+    --border: 217 33% 20%;
+    --input: 217 33% 20%;
+    --ring: 45 58% 55%;
     --radius: 0.3rem;
   }
 }
@@ -30,6 +30,17 @@
 body {
   @apply bg-background text-foreground antialiased selection:bg-lapd-gold selection:text-lapd-navy;
   font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  color: #f8fafc; /* Wymuszenie jasnego koloru tekstu */
+}
+
+/* Poprawa widoczności w polach formularzy */
+input, textarea, select {
+  @apply text-white bg-lapd-navy/50 border-lapd-gray focus:border-lapd-gold transition-colors !important;
+  color: white !important;
+}
+
+input::placeholder, textarea::placeholder {
+  color: #94a3b8 !important;
 }
 
 ::-webkit-scrollbar {
@@ -41,5 +52,5 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  @apply bg-lapd-gray rounded-full hover:bg-lapd-gold/50 transition-colors;
+  @apply bg-lapd-gray rounded-full hover:bg-lapd-gold/50;
 }

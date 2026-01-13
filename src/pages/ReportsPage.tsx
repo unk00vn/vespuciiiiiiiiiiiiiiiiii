@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { PlusCircle, Search, Loader2, Archive, FileText, ClipboardList } from "lucide-react";
+import { PlusCircle, Search, Loader2, Archive, ClipboardList } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/lib/supabase";
@@ -41,72 +41,77 @@ const ReportsPage = () => {
   const archivedReports = filteredReports.filter(r => r.status === "Zakończony" || r.status === "Odrzucony");
 
   const ReportTable = ({ data }: { data: any[] }) => (
-    <div className="overflow-x-auto">
+    <div className="overflow-x-auto rounded-lg border border-white/10">
       <Table>
-        <TableHeader>
-          <TableRow className="border-b border-lapd-gold/20 hover:bg-transparent">
-            <TableHead className="text-lapd-gold font-black uppercase text-[10px]">Sygnatura</TableHead>
-            <TableHead className="text-lapd-gold font-black uppercase text-[10px]">Zdarzenie</TableHead>
-            <TableHead className="text-lapd-gold font-black uppercase text-[10px]">Oficer</TableHead>
-            <TableHead className="text-lapd-gold font-black uppercase text-[10px]">Status</TableHead>
-            <TableHead className="text-right text-lapd-gold font-black uppercase text-[10px]">Opcje</TableHead>
+        <TableHeader className="bg-white/5">
+          <TableRow className="hover:bg-transparent">
+            <TableHead className="text-lapd-gold font-bold uppercase text-xs">Sygnatura</TableHead>
+            <TableHead className="text-white font-bold uppercase text-xs">Zdarzenie</TableHead>
+            <TableHead className="text-white font-bold uppercase text-xs">Funkcjonariusz</TableHead>
+            <TableHead className="text-white font-bold uppercase text-xs">Status</TableHead>
+            <TableHead className="text-right text-lapd-gold font-bold uppercase text-xs">Akcje</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {data.map((report) => (
-            <TableRow key={report.id} className="border-b border-lapd-gray/30 hover:bg-lapd-navy/20">
-              <TableCell className="font-mono text-[10px] text-muted-foreground uppercase">#{report.id.substring(0, 8)}</TableCell>
-              <TableCell className="font-bold text-sm tracking-tight">{report.title}</TableCell>
-              <TableCell className="text-xs">
-                <span className="font-black">#{report.author?.badge_number}</span> {report.author?.last_name}
+            <TableRow key={report.id} className="border-b border-white/5 hover:bg-white/5 transition-colors">
+              <TableCell className="font-mono text-xs text-lapd-gold/80">#{report.id.substring(0, 8)}</TableCell>
+              <TableCell className="font-semibold text-white">{report.title}</TableCell>
+              <TableCell className="text-sm text-slate-300">
+                <span className="text-lapd-gold font-bold">#{report.author?.badge_number}</span> {report.author?.last_name}
               </TableCell>
               <TableCell>
-                <Badge variant="outline" className={`text-[9px] font-black uppercase border-2 ${
-                  report.status === "Zakończony" ? "border-green-500 text-green-500" : 
-                  report.status === "Odrzucony" ? "border-red-500 text-red-500" : "border-lapd-gold text-lapd-gold"
+                <Badge className={`text-[10px] font-bold px-2 py-0.5 border-2 ${
+                  report.status === "Zakończony" ? "border-green-500/50 bg-green-500/10 text-green-400" : 
+                  report.status === "Odrzucony" ? "border-red-500/50 bg-red-500/10 text-red-400" : "border-amber-500/50 bg-amber-500/10 text-amber-400"
                 }`}>
-                  {report.status}
+                  {report.status.toUpperCase()}
                 </Badge>
               </TableCell>
               <TableCell className="text-right">
-                <Button variant="ghost" size="sm" className="text-lapd-gold hover:bg-lapd-gold/10 font-black text-[10px]">DETALE</Button>
+                <Button variant="outline" size="sm" className="h-8 border-lapd-gold/30 text-lapd-gold hover:bg-lapd-gold hover:text-black font-bold text-[10px]">DETALE</Button>
               </TableCell>
             </TableRow>
           ))}
+          {data.length === 0 && (
+            <TableRow>
+              <TableCell colSpan={5} className="text-center py-12 text-slate-500 italic">Brak raportów w tej sekcji.</TableCell>
+            </TableRow>
+          )}
         </TableBody>
       </Table>
     </div>
   );
 
   return (
-    <div className="flex flex-col gap-8">
-      <div className="flex justify-between items-end border-b-4 border-lapd-gold pb-4">
+    <div className="flex flex-col gap-6">
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-lapd-gold/30 pb-6">
         <div>
-          <h1 className="text-5xl font-black text-lapd-gold uppercase italic tracking-tighter">System Raportowy</h1>
-          <p className="text-muted-foreground font-mono text-xs uppercase tracking-widest mt-1">Vespucci Police Station • Los Santos Police Department</p>
+          <h1 className="text-4xl font-black text-white uppercase tracking-tight">System Raportowy</h1>
+          <p className="text-slate-400 font-medium text-sm mt-1">Los Santos Police Department • Vespucci Division</p>
         </div>
-        <Button asChild className="bg-lapd-gold text-lapd-navy font-black h-12 px-8 hover:scale-105 transition-transform">
-          <Link to="/reports/new"><PlusCircle className="mr-2 h-5 w-5" /> NOWY RAPORT</Link>
+        <Button asChild className="bg-lapd-gold text-black font-black h-11 px-6 hover:bg-yellow-500">
+          <Link to="/reports/new"><PlusCircle className="mr-2 h-5 w-5" /> UTWÓRZYJ NOWY RAPORT</Link>
         </Button>
       </div>
 
-      <div className="flex items-center gap-4 bg-lapd-navy/30 p-4 rounded-lg border border-lapd-gray">
-        <Search className="text-lapd-gold h-5 w-5" />
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 h-4 w-4" />
         <Input 
-          placeholder="WYSZUKAJ W ARCHIWACH..." 
-          className="bg-transparent border-none focus:ring-0 text-lapd-gold font-bold placeholder:text-lapd-gold/30"
+          placeholder="Szukaj po tytule lub nazwisku..." 
+          className="pl-10 h-12 bg-white/5 border-white/10 text-white placeholder:text-slate-500 focus:ring-1 focus:ring-lapd-gold"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
         />
       </div>
 
       <Tabs defaultValue="active" className="w-full">
-        <TabsList className="bg-transparent border-b border-lapd-gray w-full justify-start rounded-none h-auto p-0 mb-6">
-          <TabsTrigger value="active" className="rounded-none border-b-2 border-transparent data-[state=active]:border-lapd-gold data-[state=active]:bg-transparent text-muted-foreground data-[state=active]:text-lapd-gold px-8 py-4 font-black uppercase text-xs transition-all">
-            <ClipboardList className="mr-2 h-4 w-4" /> Raporty Aktywne ({activeReports.length})
+        <TabsList className="bg-white/5 p-1 mb-6 border border-white/10">
+          <TabsTrigger value="active" className="data-[state=active]:bg-lapd-gold data-[state=active]:text-black text-slate-400 font-bold px-6">
+            <ClipboardList className="mr-2 h-4 w-4" /> AKTYWNE ({activeReports.length})
           </TabsTrigger>
-          <TabsTrigger value="archive" className="rounded-none border-b-2 border-transparent data-[state=active]:border-lapd-gold data-[state=active]:bg-transparent text-muted-foreground data-[state=active]:text-lapd-gold px-8 py-4 font-black uppercase text-xs transition-all">
-            <Archive className="mr-2 h-4 w-4" /> Archiwum Systemowe ({archivedReports.length})
+          <TabsTrigger value="archive" className="data-[state=active]:bg-lapd-gold data-[state=active]:text-black text-slate-400 font-bold px-6">
+            <Archive className="mr-2 h-4 w-4" /> ARCHIWUM ({archivedReports.length})
           </TabsTrigger>
         </TabsList>
 
