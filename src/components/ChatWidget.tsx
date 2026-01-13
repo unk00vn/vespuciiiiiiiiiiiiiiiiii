@@ -7,31 +7,25 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { MessageCircle, Send, X, Loader2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
-import { io, Socket } from "socket.io-client";
 
 interface Message {
   id: string;
-  user: string;
-  badgeNumber: string;
+  user_name: string;
+  badge_number: string;
   content: string;
-  timestamp: string;
+  created_at: string;
 }
-
-const SOCKET_SERVER_URL = import.meta.env.VITE_SOCKET_URL || "http://localhost:8080";
-const MESSAGE_COOLDOWN_MS = 2000;
-
-let socket: Socket | null = null;
 
 export const ChatWidget = () => {
   const { profile } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState("");
-  const [isConnected, setIsConnected] = useState(false);
   const [isSending, setIsSending] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
-  const lastSentTimeRef = useRef(0);
 
   const scrollToBottom = () => {
     if (scrollAreaRef.current) {
@@ -42,38 +36,43 @@ export const ChatWidget = () => {
     }
   };
 
+  // Ładowanie historii i subskrypcja Realtime
   useEffect(() => {
     if (!profile) return;
 
-    if (!socket) {
-      socket = io(SOCKET_SERVER_URL, {
-        transports: ['websocket'],
-        auth: { token: profile.id },
-      });
-    }
+    const fetchHistory = async () => {
+      const { data, error } = await supabase
+        .from("chat_messages")
+        .select("*")
+        .order("created_at", { ascending: true })
+        .limit(50);
 
-    const onConnect = () => setIsConnected(true);
-    const onDisconnect = () => setIsConnected(false);
-    const onMessageReceived = (message: Message) => {
-      setMessages(prev => prev.some(m => m.id === message.id) ? prev : [...prev, message]);
-      setTimeout(scrollToBottom, 50);
-    };
-    
-    const onHistoryReceived = (history: Message[]) => {
-      setMessages(history);
-      setTimeout(scrollToBottom, 50);
+      if (error) {
+        console.error("Błąd pobierania historii czatu:", error);
+      } else {
+        setMessages(data || []);
+        setTimeout(scrollToBottom, 100);
+      }
+      setIsLoading(false);
     };
 
-    socket.on('connect', onConnect);
-    socket.on('disconnect', onDisconnect);
-    socket.on('chatMessage', onMessageReceived);
-    socket.on('history', onHistoryReceived);
+    fetchHistory();
+
+    // Subskrypcja na nowe wiadomości
+    const channel = supabase
+      .channel("public:chat_messages")
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "chat_messages" },
+        (payload) => {
+          setMessages((prev) => [...prev, payload.new as Message]);
+          setTimeout(scrollToBottom, 50);
+        }
+      )
+      .subscribe();
 
     return () => {
-      socket?.off('connect', onConnect);
-      socket?.off('disconnect', onDisconnect);
-      socket?.off('chatMessage', onMessageReceived);
-      socket?.off('history', onHistoryReceived);
+      supabase.removeChannel(channel);
     };
   }, [profile]);
 
@@ -81,45 +80,24 @@ export const ChatWidget = () => {
     if (isOpen) setTimeout(scrollToBottom, 100);
   }, [isOpen, messages.length]);
 
-  const handleSendMessage = () => {
-    if (newMessage.trim() === "" || !profile) return;
-    
-    // Jeśli nie ma połączenia, poinformuj o tym, ale nie blokuj całkowicie UI
-    if (!isConnected && !import.meta.env.DEV) {
-      toast.error("Czat jest obecnie w trybie offline.");
-      return;
-    }
-
-    const now = Date.now();
-    if (now - lastSentTimeRef.current < MESSAGE_COOLDOWN_MS) {
-      toast.warning("Zwolnij! Wysyłasz wiadomości zbyt szybko.");
-      return;
-    }
+  const handleSendMessage = async () => {
+    if (newMessage.trim() === "" || !profile || isSending) return;
 
     setIsSending(true);
     
-    const messageData = {
-      user: `${profile.first_name} ${profile.last_name}`,
-      badgeNumber: profile.badge_number,
+    const { error } = await supabase.from("chat_messages").insert({
+      user_name: `${profile.first_name} ${profile.last_name}`,
+      badge_number: profile.badge_number,
       content: newMessage,
-    };
+      author_id: profile.id
+    });
 
-    if (socket && isConnected) {
-      socket.emit('sendMessage', messageData, (response: any) => {
-        setIsSending(false);
-        if (response?.success) {
-          setNewMessage("");
-          lastSentTimeRef.current = Date.now();
-        } else {
-          toast.error("Błąd wysyłania.");
-        }
-      });
+    if (error) {
+      toast.error("Błąd transmisji: " + error.message);
     } else {
-      // Mock wysyłania dla środowiska bez serwera socketów
-      setIsSending(false);
       setNewMessage("");
-      toast.info("Wiadomość wysłana (tryb lokalny).");
     }
+    setIsSending(false);
   };
 
   if (!profile) return null;
@@ -127,7 +105,7 @@ export const ChatWidget = () => {
   if (!isOpen) {
     return (
       <Button
-        className="fixed bottom-6 right-6 rounded-full h-14 w-14 bg-lapd-gold text-lapd-navy hover:bg-yellow-600 shadow-xl z-50 animate-bounce"
+        className="fixed bottom-6 right-6 rounded-full h-14 w-14 bg-lapd-gold text-lapd-navy hover:bg-yellow-600 shadow-xl z-50"
         onClick={() => setIsOpen(true)}
       >
         <MessageCircle className="h-6 w-6" />
@@ -136,11 +114,11 @@ export const ChatWidget = () => {
   }
 
   return (
-    <Card className="fixed bottom-6 right-6 w-80 h-96 bg-[#0a121e] border-2 border-lapd-gold shadow-2xl z-50 flex flex-col">
+    <Card className="fixed bottom-6 right-6 w-85 h-[500px] bg-lapd-darker border-2 border-lapd-gold shadow-2xl z-50 flex flex-col">
       <CardHeader className="flex flex-row items-center justify-between p-3 bg-lapd-navy border-b border-lapd-gold/30">
         <CardTitle className="text-white text-sm font-black flex items-center uppercase tracking-tighter">
-          <div className={`h-2 w-2 rounded-full mr-2 ${isConnected ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
-          RADIOCZAT LSPD
+          <div className="h-2 w-2 rounded-full mr-2 bg-green-500 animate-pulse" />
+          KANAŁ OPERACYJNY LSPD
         </CardTitle>
         <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-white hover:bg-red-500" onClick={() => setIsOpen(false)}>
           <X className="h-4 w-4" />
@@ -149,35 +127,39 @@ export const ChatWidget = () => {
       <CardContent className="flex-1 p-0 flex flex-col overflow-hidden">
         <ScrollArea className="flex-1 p-4" ref={scrollAreaRef}>
           <div className="space-y-4">
-            {messages.length === 0 && (
+            {isLoading ? (
+              <div className="flex justify-center py-10"><Loader2 className="animate-spin text-lapd-gold" /></div>
+            ) : messages.length === 0 ? (
                 <p className="text-[10px] text-slate-500 text-center uppercase font-bold italic mt-10">Brak aktywnych transmisji radiowych</p>
-            )}
-            {messages.map((m) => (
-              <div key={m.id} className="border-l-2 border-lapd-gold pl-3 py-1">
-                <div className="flex justify-between items-baseline">
-                  <span className="text-[10px] font-black text-lapd-gold uppercase">{m.user}</span>
-                  <span className="text-[8px] text-slate-500 font-mono">#{m.badgeNumber}</span>
+            ) : (
+              messages.map((m) => (
+                <div key={m.id} className="border-l-2 border-lapd-gold/50 pl-3 py-1 bg-white/[0.02] rounded-r">
+                  <div className="flex justify-between items-baseline">
+                    <span className="text-[10px] font-black text-lapd-gold uppercase">{m.user_name}</span>
+                    <span className="text-[8px] text-slate-500 font-mono">#{m.badge_number}</span>
+                  </div>
+                  <p className="text-xs text-white leading-relaxed mt-1">{m.content}</p>
+                  <p className="text-[8px] text-slate-600 text-right mt-1">{new Date(m.created_at).toLocaleTimeString()}</p>
                 </div>
-                <p className="text-xs text-white leading-relaxed mt-1">{m.content}</p>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </ScrollArea>
-        <div className="p-3 bg-lapd-navy/50 border-t border-lapd-gold/20 flex gap-2">
+        <div className="p-3 bg-lapd-navy border-t border-lapd-gold/20 flex gap-2">
           <Input
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleSendMessage()}
             placeholder="NADAJ KOMUNIKAT..."
-            className="bg-black/40 border-lapd-gold/30 text-white text-xs placeholder:text-slate-600 focus:border-lapd-gold h-9"
+            className="bg-black/60 border-lapd-gold/30 text-white text-xs placeholder:text-slate-600 focus:ring-1 focus:ring-lapd-gold h-10"
           />
           <Button
             size="sm"
-            className="bg-lapd-gold text-lapd-navy hover:bg-yellow-500 h-9 px-3"
+            className="bg-lapd-gold text-lapd-navy hover:bg-yellow-500 h-10 px-3"
             onClick={handleSendMessage}
             disabled={isSending}
           >
-            <Send className="h-4 w-4" />
+            {isSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
           </Button>
         </div>
       </CardContent>

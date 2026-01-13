@@ -23,8 +23,9 @@ const queryClient = new QueryClient();
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
+      {/* Przeniesienie powiadomień do lewego dolnego rogu */}
       <Toaster />
-      <Sonner />
+      <Sonner position="bottom-left" />
       <BrowserRouter>
         <AuthProvider>
           <Routes>
