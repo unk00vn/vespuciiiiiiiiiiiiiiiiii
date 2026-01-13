@@ -1,11 +1,11 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { PlusCircle, Bell, User, Clock } from "lucide-react";
+import { User, Clock, Trash2, Loader2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
@@ -18,8 +18,10 @@ const AnnouncementsPage = () => {
   const [newAnn, setNewAnn] = useState({ title: "", content: "" });
 
   const canAdd = profile && profile.role_level >= 2; // Sergeant+
+  const canDelete = profile && profile.role_level >= 3; // Lieutenant+
 
   const fetchAnnouncements = async () => {
+    setLoading(true);
     const { data } = await supabase
       .from("announcements")
       .select("*, author:profiles(first_name, last_name, badge_number)")
@@ -37,11 +39,21 @@ const AnnouncementsPage = () => {
       title: newAnn.title,
       content: newAnn.content
     });
-    if (error) toast.error("Błąd");
+    if (error) toast.error("Błąd podczas dodawania ogłoszenia.");
     else {
-      toast.success("Ogłoszenie dodane");
+      toast.success("Ogłoszenie opublikowane.");
       setIsAdding(false);
       setNewAnn({ title: "", content: "" });
+      fetchAnnouncements();
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm("Czy na pewno chcesz usunąć to ogłoszenie?")) return;
+    const { error } = await supabase.from("announcements").delete().eq("id", id);
+    if (error) toast.error("Błąd podczas usuwania.");
+    else {
+      toast.success("Ogłoszenie usunięte.");
       fetchAnnouncements();
     }
   };
@@ -58,31 +70,59 @@ const AnnouncementsPage = () => {
       </div>
 
       {isAdding && (
-        <Card className="border-lapd-gold">
+        <Card className="border-lapd-gold bg-white shadow-xl">
           <CardContent className="p-6 space-y-4">
-            <Input placeholder="Tytuł" value={newAnn.title} onChange={e => setNewAnn({...newAnn, title: e.target.value})} />
-            <Textarea placeholder="Treść..." value={newAnn.content} onChange={e => setNewAnn({...newAnn, content: e.target.value})} />
-            <Button onClick={handleAdd} className="bg-lapd-navy text-lapd-gold w-full">OPUBLIKUJ</Button>
+            <Input 
+              placeholder="Tytuł ogłoszenia" 
+              value={newAnn.title} 
+              onChange={e => setNewAnn({...newAnn, title: e.target.value})} 
+              className="border-lapd-gold focus:ring-lapd-navy"
+            />
+            <Textarea 
+              placeholder="Treść ogłoszenia..." 
+              value={newAnn.content} 
+              onChange={e => setNewAnn({...newAnn, content: e.target.value})} 
+              className="border-lapd-gold min-h-[150px]"
+            />
+            <Button onClick={handleAdd} className="bg-lapd-navy text-lapd-gold w-full font-bold">OPUBLIKUJ TERAZ</Button>
           </CardContent>
         </Card>
       )}
 
-      <div className="space-y-4">
-        {announcements.map(ann => (
-          <Card key={ann.id} className="border-l-4 border-l-lapd-gold">
-            <CardHeader className="pb-2">
-              <div className="flex justify-between text-[10px] text-gray-400 uppercase font-bold mb-1">
-                <span className="flex items-center"><User className="h-3 w-3 mr-1" /> {ann.author?.first_name} {ann.author?.last_name}</span>
-                <span className="flex items-center"><Clock className="h-3 w-3 mr-1" /> {new Date(ann.created_at).toLocaleString()}</span>
-              </div>
-              <CardTitle className="text-lapd-navy">{ann.title}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-gray-700 whitespace-pre-wrap">{ann.content}</p>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+      {loading ? (
+        <div className="flex justify-center py-10"><Loader2 className="animate-spin text-lapd-gold h-10 w-10" /></div>
+      ) : (
+        <div className="space-y-4">
+          {announcements.map(ann => (
+            <Card key={ann.id} className="border-l-4 border-l-lapd-gold shadow-md hover:shadow-lg transition-shadow">
+              <CardHeader className="pb-2">
+                <div className="flex justify-between items-start">
+                  <div className="flex flex-col">
+                    <div className="flex gap-4 text-[10px] text-gray-400 uppercase font-bold mb-1">
+                      <span className="flex items-center"><User className="h-3 w-3 mr-1" /> {ann.author?.first_name} {ann.author?.last_name} (#{ann.author?.badge_number})</span>
+                      <span className="flex items-center"><Clock className="h-3 w-3 mr-1" /> {new Date(ann.created_at).toLocaleString()}</span>
+                    </div>
+                    <CardTitle className="text-lapd-navy uppercase tracking-tight">{ann.title}</CardTitle>
+                  </div>
+                  {canDelete && (
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="text-red-400 hover:text-red-600 hover:bg-red-50"
+                      onClick={() => handleDelete(ann.id)}
+                    >
+                      <Trash2 className="h-5 w-5" />
+                    </Button>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">{ann.content}</p>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
     </div>
   );
 };
