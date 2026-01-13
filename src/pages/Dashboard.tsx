@@ -5,14 +5,9 @@ import { MadeWithDyad } from "@/components/made-with-dyad";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Bell, FileText, Users, AlertTriangle, Loader2 } from "lucide-react";
 import { OfficerStats } from "@/components/OfficerStats";
-import { QuickActions } from "@/components/QuickActions";
-import { RecentIncidents } from "@/components/RecentIncidents";
-import { ActivePatrols } from "@/components/ActivePatrols";
 import { ReportStatsChart } from "@/components/ReportStatsChart";
-import { supabase, testDatabaseConnection } from "@/lib/supabase";
+import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
-import { Button } from "@/components/ui/button";
-import { toast } from "sonner";
 
 const Dashboard = () => {
   const { profile } = useAuth();
@@ -41,51 +36,47 @@ const Dashboard = () => {
   }, [profile]);
 
   return (
-    <div className="flex flex-col gap-8">
-      <div className="flex justify-between items-center border-b border-lapd-gold/30 pb-4">
+    <div className="flex flex-col gap-8 max-w-7xl mx-auto">
+      <div className="flex justify-between items-center border-b border-lapd-gold/30 pb-6">
         <div>
-          <h1 className="text-4xl font-black text-white uppercase tracking-tight">
-            WITAJ, <span className="text-lapd-gold">{profile?.first_name || "FUNKCJONARIUSZU"}</span>!
+          <h1 className="text-5xl font-black text-white uppercase tracking-tighter">
+            WITAJ, <span className="text-lapd-gold italic">{profile?.first_name || "OFFICER"}</span>
           </h1>
-          <p className="text-slate-200 font-bold uppercase text-xs tracking-widest mt-1">Terminal Operacyjny LSPD • Status: Online</p>
+          <p className="text-slate-400 font-mono text-[10px] uppercase tracking-[0.3em] mt-2">
+            LSPD Central Terminal • Secure Connection Established
+          </p>
         </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {[
-          { title: "Oczekujące Konta", val: stats.pendingAccounts, icon: <Bell />, desc: "Do zatwierdzenia" },
-          { title: "Do Przejrzenia", val: stats.reportsToReview, icon: <FileText />, desc: "Twoje raporty" },
-          { title: "Stan Osobowy", val: stats.totalOfficers, icon: <Users />, desc: "Zatwierdzeni" },
-          { title: "Aktywne Zdarzenia", val: 7, icon: <AlertTriangle />, desc: "Wymagają uwagi" }
+          { title: "Konta Oczekujące", val: stats.pendingAccounts, icon: <Bell className="h-4 w-4" /> },
+          { title: "Raporty do wglądu", val: stats.reportsToReview, icon: <FileText className="h-4 w-4" /> },
+          { title: "Aktywny Personel", val: stats.totalOfficers, icon: <Users className="h-4 w-4" /> },
+          { title: "Status Systemu", val: "ACTIVE", icon: <AlertTriangle className="h-4 w-4" /> }
         ].map((s, i) => (
-          <Card key={i} className="bg-white/5 border-lapd-gold/20 hover:border-lapd-gold transition-colors">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-xs font-black text-lapd-gold uppercase">{s.title}</CardTitle>
+          <Card key={i} className="bg-white/5 border-white/10 hover:border-lapd-gold/50 transition-all duration-300">
+            <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+              <CardTitle className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{s.title}</CardTitle>
               <div className="text-lapd-gold">{s.icon}</div>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-black text-white">{loading ? "..." : s.val}</div>
-              <p className="text-[10px] text-slate-300 font-bold uppercase mt-1">{s.desc}</p>
+              <div className="text-4xl font-mono font-black text-white">
+                {loading ? "..." : s.val}
+              </div>
             </CardContent>
           </Card>
         ))}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2">
-          <QuickActions />
-        </div>
-        <div>
+        <div className="lg:col-span-1">
           <OfficerStats />
         </div>
+        <div className="lg:col-span-2">
+          <ReportStatsChart profileId={profile?.id || ""} />
+        </div>
       </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <RecentIncidents />
-        <ActivePatrols />
-      </div>
-
-      <ReportStatsChart profileId={profile?.id || ""} />
       
       <MadeWithDyad />
     </div>
