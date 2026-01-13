@@ -19,6 +19,7 @@ export interface UserProfile {
   role_name: UserRole;
   role_level: number;
   division_id?: number;
+  division_name?: string; // Dodano pole division_name
   status: "pending" | "approved" | "rejected";
   avatar_url?: string;
 }
@@ -70,6 +71,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         role_name: data.roles.name as UserRole,
         role_level: data.roles.level,
         division_id: data.divisions?.id || undefined,
+        division_name: data.divisions?.name || undefined, // Dodano division_name
         status: data.status as "pending" | "approved" | "rejected",
         avatar_url: data.avatar_url || undefined,
       };

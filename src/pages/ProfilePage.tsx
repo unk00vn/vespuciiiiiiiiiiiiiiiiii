@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { User as UserIcon, Mail, Briefcase, Shield, CheckCircle, Clock, XCircle } from "lucide-react";
+import { User as UserIcon, Mail, Briefcase, Shield, CheckCircle, Clock, XCircle, Users } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 
@@ -205,12 +205,12 @@ const ProfilePage = () => {
               </Label>
               <Input id="status" value={getStatusText(profile.status)} readOnly className="mt-1 border-lapd-gold bg-gray-50" />
             </div>
-            {profile.division_id && (
+            {profile.division_name && ( // Zmieniono z division_id na division_name
               <div>
                 <Label htmlFor="division" className="text-lapd-navy flex items-center">
                   <Users className="h-4 w-4 mr-2" /> Dywizja
                 </Label>
-                <Input id="division" value={profile.division_id} readOnly className="mt-1 border-lapd-gold bg-gray-50" />
+                <Input id="division" value={profile.division_name} readOnly className="mt-1 border-lapd-gold bg-gray-50" />
               </div>
             )}
           </div>
