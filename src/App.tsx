@@ -12,9 +12,10 @@ import AccountManagementPage from "./pages/AccountManagementPage";
 import ProfilePage from "./pages/ProfilePage";
 import ReportsPage from "./pages/ReportsPage";
 import DivisionsPage from "./pages/DivisionsPage";
-import AnnouncementsPage from "./pages/AnnouncementsPage"; // Import AnnouncementsPage
+import AnnouncementsPage from "./pages/AnnouncementsPage";
+import NotesPage from "./pages/NotesPage"; // Import NotesPage
 import { AuthProvider, ProtectedRoute } from "./contexts/AuthContext";
-import CreateAdminUser from "./components/CreateAdminUser"; // Import the temporary component
+import CreateAdminUser from "./components/CreateAdminUser";
 
 const queryClient = new QueryClient();
 
@@ -40,7 +41,8 @@ const App = () => (
                       <Route path="/profile" element={<ProfilePage />} />
                       <Route path="/reports" element={<ReportsPage />} />
                       <Route path="/divisions" element={<DivisionsPage />} />
-                      <Route path="/announcements" element={<AnnouncementsPage />} /> {/* Add AnnouncementsPage route */}
+                      <Route path="/announcements" element={<AnnouncementsPage />} />
+                      <Route path="/notes" element={<NotesPage />} /> {/* Add NotesPage route */}
                       <Route
                         path="/account-management"
                         element={<ProtectedRoute allowedRoles={["Lieutenant", "Captain", "High Command"]}><AccountManagementPage /></ProtectedRoute>}
