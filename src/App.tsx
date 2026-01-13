@@ -8,7 +8,8 @@ import Dashboard from "./pages/Dashboard";
 import NotFound from "./pages/NotFound";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
-import AccountManagementPage from "./pages/AccountManagementPage"; // Import AccountManagementPage
+import AccountManagementPage from "./pages/AccountManagementPage";
+import ProfilePage from "./pages/ProfilePage"; // Import ProfilePage
 import { AuthProvider, ProtectedRoute } from "./contexts/AuthContext";
 
 const queryClient = new QueryClient();
@@ -30,6 +31,7 @@ const App = () => (
                   <Layout>
                     <Routes>
                       <Route path="/" element={<Dashboard />} />
+                      <Route path="/profile" element={<ProfilePage />} /> {/* Add ProfilePage route */}
                       <Route
                         path="/account-management"
                         element={<ProtectedRoute allowedRoles={["Lieutenant", "Captain", "High Command"]}><AccountManagementPage /></ProtectedRoute>}
