@@ -4,53 +4,49 @@
 
 @layer base {
   :root {
-    --background: 222 47% 3%;
+    --background: 222 47% 2%;
     --foreground: 210 40% 98%;
-    --card: 222 47% 6%;
+    --card: 222 47% 4%;
     --card-foreground: 210 40% 98%;
-    --popover: 222 47% 6%;
+    --popover: 222 47% 4%;
     --popover-foreground: 210 40% 98%;
-    --primary: 45 58% 55%;
+    --primary: 45 58% 60%;
     --primary-foreground: 222 47% 5%;
-    --secondary: 217 33% 15%;
+    --secondary: 217 33% 12%;
     --secondary-foreground: 210 40% 98%;
     --muted: 217 33% 15%;
-    --muted-foreground: 215 20% 75%; /* Znacznie jaśniejszy */
-    --accent: 45 58% 55%;
+    --muted-foreground: 210 40% 90%; /* Bardzo jasny szary dla wysokiego kontrastu */
+    --accent: 45 58% 60%;
     --accent-foreground: 222 47% 5%;
     --destructive: 0 84% 60%;
     --destructive-foreground: 210 40% 98%;
-    --border: 217 33% 20%;
-    --input: 217 33% 20%;
-    --ring: 45 58% 55%;
+    --border: 217 33% 15%;
+    --input: 217 33% 15%;
+    --ring: 45 58% 60%;
     --radius: 0.3rem;
   }
 }
 
 body {
-  @apply bg-background text-foreground antialiased selection:bg-lapd-gold selection:text-lapd-navy;
-  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
-  color: #f8fafc; /* Wymuszenie jasnego koloru tekstu */
+  @apply bg-background text-foreground antialiased;
+  color: #f8fafc !important; /* Wymuszenie jasnego tekstu */
 }
 
-/* Poprawa widoczności w polach formularzy */
+/* Wymuszenie widoczności dla tekstów pomocniczych */
+.text-muted-foreground, .text-gray-500, .text-slate-500 {
+  color: #cbd5e1 !important; /* Jasny szary/biały */
+}
+
+.text-gray-700, .text-slate-700 {
+  color: #f1f5f9 !important; /* Prawie biały */
+}
+
+/* Pola tekstowe - biały tekst przy pisaniu */
 input, textarea, select {
-  @apply text-white bg-lapd-navy/50 border-lapd-gray focus:border-lapd-gold transition-colors !important;
-  color: white !important;
-}
-
-input::placeholder, textarea::placeholder {
-  color: #94a3b8 !important;
-}
-
-::-webkit-scrollbar {
-  width: 8px;
-}
-
-::-webkit-scrollbar-track {
-  @apply bg-background;
+  color: #ffffff !important;
+  background-color: rgba(10, 26, 47, 0.8) !important;
 }
 
 ::-webkit-scrollbar-thumb {
-  @apply bg-lapd-gray rounded-full hover:bg-lapd-gold/50;
+  @apply bg-lapd-gold/30 rounded-full hover:bg-lapd-gold/60;
 }

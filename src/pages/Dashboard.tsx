@@ -22,134 +22,56 @@ const Dashboard = () => {
     pendingAccounts: 0
   });
   const [loading, setLoading] = useState(true);
-  const [connectionStatus, setConnectionStatus] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchStats = async () => {
       if (!profile) return;
-
-      // 1. Raporty do przejrzenia (skierowane do mnie i oczekujące)
-      const { count: reportsCount } = await supabase
-        .from("reports")
-        .select("*", { count: 'exact', head: true })
-        .eq("recipient_id", profile.id)
-        .eq("status", "Oczekujący");
-
-      // 2. Wszyscy zatwierdzeni funkcjonariusze
-      const { count: officersCount } = await supabase
-        .from("profiles")
-        .select("*", { count: 'exact', head: true })
-        .eq("status", "approved");
-
-      // 3. Oczekujące konta (dla kadry)
-      const { count: pendingCount } = await supabase
-        .from("profiles")
-        .select("*", { count: 'exact', head: true })
-        .eq("status", "pending");
+      const { count: rCount } = await supabase.from("reports").select("*", { count: 'exact', head: true }).eq("recipient_id", profile.id).eq("status", "Oczekujący");
+      const { count: oCount } = await supabase.from("profiles").select("*", { count: 'exact', head: true }).eq("status", "approved");
+      const { count: pCount } = await supabase.from("profiles").select("*", { count: 'exact', head: true }).eq("status", "pending");
 
       setStats({
-        reportsToReview: reportsCount || 0,
-        totalOfficers: officersCount || 0,
-        pendingAccounts: pendingCount || 0
+        reportsToReview: rCount || 0,
+        totalOfficers: oCount || 0,
+        pendingAccounts: pCount || 0
       });
       setLoading(false);
     };
-
     fetchStats();
   }, [profile]);
 
-  const handleTestConnection = async () => {
-    setConnectionStatus("Testing...");
-    const isConnected = await testDatabaseConnection();
-    setConnectionStatus(isConnected ? "Connected ✅" : "Failed ❌");
-    toast[isConnected ? "success" : "error"](`Database connection: ${isConnected ? "Success" : "Failed"}`);
-  };
-
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex justify-between items-center">
+    <div className="flex flex-col gap-8">
+      <div className="flex justify-between items-center border-b border-lapd-gold/30 pb-4">
         <div>
-          <h1 className="text-3xl font-bold text-lapd-navy uppercase tracking-tighter">
-            Witaj, {profile?.first_name || "Funkcjonariuszu"}!
+          <h1 className="text-4xl font-black text-white uppercase tracking-tight">
+            WITAJ, <span className="text-lapd-gold">{profile?.first_name || "FUNKCJONARIUSZU"}</span>!
           </h1>
-          <p className="text-gray-700">Przeglądaj najważniejsze informacje i szybkie skróty.</p>
+          <p className="text-slate-200 font-bold uppercase text-xs tracking-widest mt-1">Terminal Operacyjny LSPD • Status: Online</p>
         </div>
-        <Button
-          onClick={handleTestConnection}
-          variant="outline"
-          className="border-lapd-gold text-lapd-navy hover:bg-lapd-gold"
-        >
-          Test DB Connection
-        </Button>
       </div>
-
-      {connectionStatus && (
-        <div className={`p-3 rounded-lg text-center font-bold ${connectionStatus.includes("✅") ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}`}>
-          {connectionStatus}
-        </div>
-      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Card className="bg-lapd-white border-lapd-gold shadow-md">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-bold text-lapd-navy uppercase">
-              Oczekujące Konta
-            </CardTitle>
-            <Bell className="h-4 w-4 text-lapd-gold" />
-          </CardHeader>
-          <CardContent>
-            {loading ? <Loader2 className="h-6 w-6 animate-spin" /> : (
-              <div className="text-2xl font-black text-lapd-navy">{stats.pendingAccounts}</div>
-            )}
-            <p className="text-xs text-gray-500">Do zatwierdzenia przez LT+</p>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-lapd-white border-lapd-gold shadow-md">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-bold text-lapd-navy uppercase">
-              Raporty do Przejrzenia
-            </CardTitle>
-            <FileText className="h-4 w-4 text-lapd-gold" />
-          </CardHeader>
-          <CardContent>
-            {loading ? <Loader2 className="h-6 w-6 animate-spin" /> : (
-              <div className="text-2xl font-black text-lapd-navy">{stats.reportsToReview}</div>
-            )}
-            <p className="text-xs text-gray-500">Skierowane bezpośrednio do Ciebie</p>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-lapd-white border-lapd-gold shadow-md">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-bold text-lapd-navy uppercase">
-              Funkcjonariusze
-            </CardTitle>
-            <Users className="h-4 w-4 text-lapd-gold" />
-          </CardHeader>
-          <CardContent>
-            {loading ? <Loader2 className="h-6 w-6 animate-spin" /> : (
-              <div className="text-2xl font-black text-lapd-navy">{stats.totalOfficers}</div>
-            )}
-            <p className="text-xs text-gray-500">Aktywne i zatwierdzone konta</p>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-lapd-white border-lapd-gold shadow-md">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-bold text-lapd-navy uppercase">
-              Aktywne Incydenty
-            </CardTitle>
-            <AlertTriangle className="h-4 w-4 text-lapd-gold" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-black text-lapd-navy">7</div>
-            <p className="text-xs text-gray-500">Wymagają interwencji</p>
-          </CardContent>
-        </Card>
+        {[
+          { title: "Oczekujące Konta", val: stats.pendingAccounts, icon: <Bell />, desc: "Do zatwierdzenia" },
+          { title: "Do Przejrzenia", val: stats.reportsToReview, icon: <FileText />, desc: "Twoje raporty" },
+          { title: "Stan Osobowy", val: stats.totalOfficers, icon: <Users />, desc: "Zatwierdzeni" },
+          { title: "Aktywne Zdarzenia", val: 7, icon: <AlertTriangle />, desc: "Wymagają uwagi" }
+        ].map((s, i) => (
+          <Card key={i} className="bg-white/5 border-lapd-gold/20 hover:border-lapd-gold transition-colors">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-xs font-black text-lapd-gold uppercase">{s.title}</CardTitle>
+              <div className="text-lapd-gold">{s.icon}</div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-black text-white">{loading ? "..." : s.val}</div>
+              <p className="text-[10px] text-slate-300 font-bold uppercase mt-1">{s.desc}</p>
+            </CardContent>
+          </Card>
+        ))}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2">
           <QuickActions />
         </div>
@@ -158,13 +80,13 @@ const Dashboard = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         <RecentIncidents />
         <ActivePatrols />
       </div>
 
-      {profile?.id && <ReportStatsChart profileId={profile.id} />}
-
+      <ReportStatsChart profileId={profile?.id || ""} />
+      
       <MadeWithDyad />
     </div>
   );

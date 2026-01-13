@@ -16,19 +16,19 @@ import { Link } from "react-router-dom";
 
 export const QuickActions = () => {
   const actions = [
-    { name: "Nowy Raport", icon: <PlusCircle className="h-6 w-6" />, path: "/reports/new", color: "text-blue-500" },
-    { name: "Przeglądaj Raporty", icon: <FileText className="h-6 w-6" />, path: "/reports", color: "text-indigo-500" },
-    { name: "Notatki", icon: <ClipboardList className="h-6 w-6" />, path: "/notes", color: "text-amber-500" },
-    { name: "Ogłoszenia", icon: <Bell className="h-6 w-6" />, path: "/announcements", color: "text-red-500" },
-    { name: "Dywizje", icon: <Users className="h-6 w-6" />, path: "/divisions", color: "text-emerald-500" },
-    { name: "Mój Profil", icon: <User className="h-6 w-6" />, path: "/profile", color: "text-slate-500" },
-    { name: "Zarządzanie", icon: <ShieldCheck className="h-6 w-6" />, path: "/account-management", color: "text-purple-500" },
+    { name: "Nowy Raport", icon: <PlusCircle />, path: "/reports/new", color: "text-blue-400" },
+    { name: "Lista Raportów", icon: <FileText />, path: "/reports", color: "text-indigo-400" },
+    { name: "Baza Notatek", icon: <ClipboardList />, path: "/notes", color: "text-amber-400" },
+    { name: "Ogłoszenia", icon: <Bell />, path: "/announcements", color: "text-red-400" },
+    { name: "Dywizje", icon: <Users />, path: "/divisions", color: "text-emerald-400" },
+    { name: "Mój Profil", icon: <User />, path: "/profile", color: "text-slate-300" },
+    { name: "Zarządzanie", icon: <ShieldCheck />, path: "/account-management", color: "text-purple-400" },
   ];
 
   return (
-    <Card className="bg-lapd-white border-lapd-gold shadow-lg overflow-hidden">
-      <CardHeader className="bg-lapd-navy/5 border-b border-lapd-gold/20">
-        <CardTitle className="text-lapd-navy text-lg font-bold">Panel Sterowania</CardTitle>
+    <Card className="bg-white/5 border-lapd-gold/30 shadow-2xl">
+      <CardHeader className="border-b border-lapd-gold/20">
+        <CardTitle className="text-white text-lg font-black uppercase tracking-tighter">Panel Sterowania</CardTitle>
       </CardHeader>
       <CardContent className="p-6">
         <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-4">
@@ -36,12 +36,12 @@ export const QuickActions = () => {
             <Button
               key={index}
               variant="outline"
-              className="flex flex-col items-center justify-center h-28 p-4 border-gray-200 hover:border-lapd-gold hover:bg-lapd-gold/5 transition-all duration-300 shadow-sm hover:shadow-md group"
+              className="flex flex-col items-center justify-center h-28 p-2 border-white/10 bg-black/20 hover:bg-lapd-gold hover:text-lapd-navy transition-all group"
               asChild
             >
               <Link to={action.path}>
-                <div className={`${action.color} mb-3 transition-transform group-hover:scale-110`}>{action.icon}</div>
-                <span className="text-[11px] font-bold text-center uppercase tracking-tighter text-lapd-navy">{action.name}</span>
+                <div className={`${action.color} mb-3 group-hover:text-lapd-navy transition-colors`}>{action.icon}</div>
+                <span className="text-[10px] font-black text-center uppercase leading-tight text-white group-hover:text-lapd-navy">{action.name}</span>
               </Link>
             </Button>
           ))}
