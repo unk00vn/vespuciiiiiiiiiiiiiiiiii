@@ -114,7 +114,13 @@ export const ReportForm = () => {
             <Label className="uppercase text-[10px] font-black text-lapd-gold tracking-widest">Adresat (Przełożony)</Label>
             <Select onValueChange={(v) => setFormData({...formData, recipientId: v})}>
               <SelectTrigger className="border-lapd-gold bg-black/40"><SelectValue placeholder="Wybierz..." /></SelectTrigger>
-              <SelectContent>{officers.map(off => <SelectItem key={off.id} value={off.id}>#{off.badge_number} {off.last_name}</SelectItem>)}</SelectContent>
+              <SelectContent>
+                {officers.map(off => (
+                  <SelectItem key={off.id} value={off.id}>
+                    #{off.badge_number} {off.first_name} {off.last_name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
             </Select>
           </div>
           <div className="space-y-2">
@@ -130,7 +136,7 @@ export const ReportForm = () => {
               <ScrollArea className="h-40">
                 <div className="space-y-2">
                   {officers.filter(o => o.id !== profile?.id).map(off => {
-                    const label = `#${off.badge_number} ${off.last_name}`;
+                    const label = `#${off.badge_number} ${off.first_name} ${off.last_name}`;
                     return (
                       <div key={off.id} className="flex items-center space-x-2 p-1 hover:bg-white/5 rounded transition-colors cursor-pointer" onClick={() => toggleOfficer(label)}>
                         <Checkbox checked={selectedOfficers.includes(label)} onCheckedChange={() => toggleOfficer(label)} className="border-lapd-gold data-[state=checked]:bg-lapd-gold data-[state=checked]:text-lapd-navy" />
