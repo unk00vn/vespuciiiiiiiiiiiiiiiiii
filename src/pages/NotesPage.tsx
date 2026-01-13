@@ -6,157 +6,93 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { PlusCircle, Trash2, ClipboardList, Loader2, Save } from "lucide-react";
+import { PlusCircle, Trash2, ClipboardList, Share2, Users } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 const NotesPage = () => {
   const { profile } = useAuth();
   const [notes, setNotes] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [allOfficers, setAllOfficers] = useState<any[]>([]);
   const [isAdding, setIsAdding] = useState(false);
-  
-  const [newNote, setNewNote] = useState({
-    title: "",
-    content: "",
-    status: "Aktywna"
-  });
+  const [sharingNote, setSharingNote] = useState<any>(null);
+  const [newNote, setNewNote] = useState({ title: "", content: "" });
 
   const fetchNotes = async () => {
     if (!profile) return;
-    const { data, error } = await supabase
-      .from("notes")
-      .select("*")
-      .eq("author_id", profile.id)
-      .order("created_at", { ascending: false });
-
-    if (!error && data) setNotes(data);
-    setLoading(false);
+    // Pobierz własne notatki ORAZ udostępnione
+    const { data: myNotes } = await supabase.from("notes").select("*").eq("author_id", profile.id);
+    const { data: shared } = await supabase.from("note_shares").select("notes(*)").eq("profile_id", profile.id);
+    
+    const combined = [...(myNotes || []), ...(shared?.map(s => s.notes) || [])];
+    setNotes(combined.sort((a,b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()));
   };
 
   useEffect(() => {
     fetchNotes();
+    supabase.from("profiles").select("id, first_name, last_name").eq("status", "approved").then(({data}) => setAllOfficers(data || []));
   }, [profile]);
 
-  const handleAddNote = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!profile || !newNote.title) return;
-
-    const { error } = await supabase.from("notes").insert({
-      author_id: profile.id,
-      title: newNote.title,
-      content: newNote.content,
-      status: newNote.status
-    });
-
-    if (error) {
-      toast.error("Błąd zapisu notatki");
-    } else {
-      toast.success("Notatka zapisana");
-      setNewNote({ title: "", content: "", status: "Aktywna" });
-      setIsAdding(false);
-      fetchNotes();
-    }
+  const handleAdd = async () => {
+    await supabase.from("notes").insert({ author_id: profile?.id, title: newNote.title, content: newNote.content });
+    setIsAdding(false);
+    fetchNotes();
   };
 
-  const deleteNote = async (id: number) => {
-    const { error } = await supabase.from("notes").delete().eq("id", id);
-    if (!error) {
-      setNotes(notes.filter(n => n.id !== id));
-      toast.success("Notatka usunięta");
-    }
+  const handleShare = async (officerId: string) => {
+    const { error } = await supabase.from("note_shares").insert({ note_id: sharingNote.id, profile_id: officerId });
+    if (error) toast.error("Już udostępniono");
+    else toast.success("Udostępniono");
   };
 
   return (
     <div className="flex flex-col gap-6">
       <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold text-lapd-navy">Moje Notatki</h1>
-          <p className="text-gray-500 text-sm">Twoje prywatne notatki i szkice operacyjne.</p>
-        </div>
-        <Button 
-          onClick={() => setIsAdding(!isAdding)} 
-          className={isAdding ? "bg-gray-500" : "bg-lapd-gold text-lapd-navy font-bold"}
-        >
-          {isAdding ? "ANULUJ" : <><PlusCircle className="mr-2 h-4 w-4" /> NOWA NOTATKA</>}
-        </Button>
+        <h1 className="text-3xl font-bold text-lapd-navy">Notatki & Operacje</h1>
+        <Button onClick={() => setIsAdding(!isAdding)} className="bg-lapd-gold text-lapd-navy">NOWA</Button>
       </div>
 
       {isAdding && (
-        <Card className="border-lapd-gold shadow-xl">
-          <form onSubmit={handleAddNote}>
-            <CardHeader className="bg-lapd-navy text-lapd-white py-3">
-              <CardTitle className="text-sm font-bold uppercase tracking-widest flex items-center">
-                <ClipboardList className="h-4 w-4 mr-2 text-lapd-gold" /> NOWY WPIS
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-6 space-y-4">
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold uppercase text-gray-500">Tytuł notatki</label>
-                <Input 
-                  value={newNote.title} 
-                  onChange={e => setNewNote({...newNote, title: e.target.value})}
-                  className="border-lapd-gold h-10"
-                  required
-                />
-              </div>
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold uppercase text-gray-500">Treść</label>
-                <Textarea 
-                  value={newNote.content} 
-                  onChange={e => setNewNote({...newNote, content: e.target.value})}
-                  className="border-lapd-gold min-h-[150px]"
-                />
-              </div>
-            </CardContent>
-            <CardFooter className="bg-gray-50 border-t justify-end p-4">
-              <Button type="submit" className="bg-lapd-navy text-lapd-gold px-8 font-bold">
-                <Save className="h-4 w-4 mr-2" /> ZAPISZ W BAZIE
-              </Button>
-            </CardFooter>
-          </form>
+        <Card className="border-lapd-gold">
+          <CardContent className="p-4 space-y-4">
+            <Input placeholder="Tytuł" value={newNote.title} onChange={e => setNewNote({...newNote, title: e.target.value})} />
+            <Textarea placeholder="Treść..." value={newNote.content} onChange={e => setNewNote({...newNote, content: e.target.value})} />
+            <Button onClick={handleAdd} className="w-full bg-lapd-navy text-lapd-gold">ZAPISZ</Button>
+          </CardContent>
         </Card>
       )}
 
-      {loading ? (
-        <div className="flex justify-center py-20"><Loader2 className="animate-spin text-lapd-gold h-10 w-10" /></div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {notes.map((note) => (
-            <Card key={note.id} className="bg-white border-l-4 border-l-lapd-gold shadow-md hover:shadow-xl transition-shadow group">
-              <CardHeader className="pb-2 flex flex-row items-start justify-between">
-                <div>
-                  <Badge variant="outline" className="text-[10px] uppercase border-lapd-navy text-lapd-navy mb-2">
-                    {note.status}
-                  </Badge>
-                  <CardTitle className="text-lapd-navy font-bold line-clamp-1">{note.title}</CardTitle>
-                  <p className="text-[10px] text-gray-400 mt-1 font-mono uppercase">
-                    {new Date(note.created_at).toLocaleString()}
-                  </p>
-                </div>
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  onClick={() => deleteNote(note.id)}
-                  className="text-red-400 hover:text-red-600 hover:bg-red-50 -mt-1 -mr-2"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </CardHeader>
-              <CardContent className="pb-6">
-                <p className="text-gray-600 text-sm whitespace-pre-wrap line-clamp-6">{note.content}</p>
-              </CardContent>
-            </Card>
-          ))}
-          {notes.length === 0 && !isAdding && (
-            <div className="col-span-full py-20 text-center border-2 border-dashed border-gray-200 rounded-xl">
-              <ClipboardList className="h-12 w-12 text-gray-200 mx-auto mb-4" />
-              <p className="text-gray-400 font-medium">Nie masz jeszcze żadnych notatek.</p>
-            </div>
-          )}
-        </div>
-      )}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {notes.map(n => (
+          <Card key={n.id} className="relative">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm">{n.title}</CardTitle>
+            </CardHeader>
+            <CardContent className="text-xs text-gray-600 min-h-[100px]">{n.content}</CardContent>
+            <CardFooter className="flex justify-end gap-2">
+              {n.author_id === profile?.id && (
+                <Button variant="ghost" size="sm" onClick={() => setSharingNote(n)}><Share2 className="h-4 w-4" /></Button>
+              )}
+            </CardFooter>
+          </Card>
+        ))}
+      </div>
+
+      <Dialog open={!!sharingNote} onOpenChange={() => setSharingNote(null)}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Udostępnij notatkę</DialogTitle></DialogHeader>
+          <div className="max-h-60 overflow-y-auto space-y-2">
+            {allOfficers.filter(o => o.id !== profile?.id).map(o => (
+              <div key={o.id} className="flex justify-between items-center p-2 border rounded">
+                <span>{o.first_name} {o.last_name}</span>
+                <Button size="sm" variant="outline" onClick={() => handleShare(o.id)}>Udostępnij</Button>
+              </div>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

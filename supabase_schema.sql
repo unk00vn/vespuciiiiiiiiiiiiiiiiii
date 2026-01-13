@@ -1,21 +1,38 @@
--- Dodanie polityki pozwalającej na aktualizację statusu raportu
--- Uprawnienia mają: adresat raportu LUB osoby z dostępem dowódczym (wyższy role_level)
+-- 1. Tabela łącząca profile z wieloma dywizjami
+CREATE TABLE IF NOT EXISTS profile_divisions (
+  profile_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
+  division_id INTEGER REFERENCES divisions(id) ON DELETE CASCADE,
+  PRIMARY KEY (profile_id, division_id)
+);
 
--- Usuwamy stare polityki jeśli istnieją, aby uniknąć konfliktów
-DROP POLICY IF EXISTS "Users can view relevant reports" ON reports;
-DROP POLICY IF EXISTS "Users can update reports" ON reports;
+-- 2. Tabela ogłoszeń
+CREATE TABLE IF NOT EXISTS announcements (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  author_id UUID REFERENCES profiles(id),
+  title TEXT NOT NULL,
+  content TEXT NOT NULL,
+  status TEXT DEFAULT 'Aktywne',
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
 
--- 1. Polityka Widoczności (Autor i Adresat widzą raport)
-CREATE POLICY "Users can view relevant reports" 
-ON reports FOR SELECT 
-USING (auth.uid() = author_id OR auth.uid() = recipient_id);
+-- 3. Tabela współdzielenia notatek
+CREATE TABLE IF NOT EXISTS note_shares (
+  note_id INTEGER REFERENCES notes(id) ON DELETE CASCADE,
+  profile_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
+  PRIMARY KEY (note_id, profile_id)
+);
 
--- 2. Polityka Aktualizacji (Tylko adresat może zmienić status raportu)
-CREATE POLICY "Users can update reports" 
-ON reports FOR UPDATE 
-USING (auth.uid() = recipient_id)
-WITH CHECK (auth.uid() = recipient_id);
+-- Włącz RLS dla nowych tabel
+ALTER TABLE announcements ENABLE ROW LEVEL SECURITY;
+ALTER TABLE note_shares ENABLE ROW LEVEL SECURITY;
+ALTER TABLE profile_divisions ENABLE ROW LEVEL SECURITY;
 
--- Opcjonalnie: Jeśli chcesz, aby wyższe stopnie (np. Kapitan) też mogły edytować, 
--- polityka musiałaby sprawdzać role_id w tabeli profiles, co jest bardziej złożone.
--- Na ten moment powyższa polityka pozwoli ADRESATOWI na zatwierdzenie raportu.
+-- Proste polityki (wszyscy widzą, odpowiednie role tworzą)
+CREATE POLICY "View announcements" ON announcements FOR SELECT USING (true);
+CREATE POLICY "SGT+ can insert announcements" ON announcements FOR INSERT WITH CHECK (
+  EXISTS (
+    SELECT 1 FROM profiles p 
+    JOIN roles r ON p.role_id = r.id 
+    WHERE p.id = auth.uid() AND r.level >= 2
+  )
+);

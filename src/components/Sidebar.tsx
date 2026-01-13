@@ -12,6 +12,7 @@ import {
   LogOut, 
   ClipboardList, 
   ShieldCheck,
+  Contact
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth, UserRole } from "@/contexts/AuthContext";
@@ -23,6 +24,7 @@ interface SidebarProps {
 const navItems = [
   { name: "Dashboard", icon: Home, path: "/" },
   { name: "Raporty", icon: FileText, path: "/reports" },
+  { name: "Funkcjonariusze", icon: Contact, path: "/personnel" },
   { name: "Dywizje", icon: Users, path: "/divisions" },
   { name: "Ogłoszenia", icon: Bell, path: "/announcements" },
   { name: "Notatki", icon: ClipboardList, path: "/notes" },
