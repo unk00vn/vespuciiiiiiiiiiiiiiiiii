@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS public.divisions (
 CREATE TABLE IF NOT EXISTS public.profiles (
     id uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
     email text UNIQUE NOT NULL,
-    badge_number text UNIQUE NOTING NULL,
+    badge_number text UNIQUE NOT NULL,
     first_name text,
     last_name text,
     role_id integer REFERENCES public.roles(id),
