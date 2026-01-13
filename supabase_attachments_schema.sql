@@ -1,29 +1,43 @@
--- Tabela do przechowywania załączników (plików)
-CREATE TABLE IF NOT EXISTS public.attachments (
-    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+-- Tabela do przechowywania metadanych załączników (zdjęć)
+CREATE TABLE attachments (
+    id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     
-    -- Metadane pliku
-    owner_id uuid REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+    owner_id uuid REFERENCES profiles(id) ON DELETE CASCADE NOT NULL,
+    
     file_url text NOT NULL,
     file_type text NOT NULL,
-    file_size bigint NOT NULL,
+    file_size integer NOT NULL,
     
-    -- Relacje do innych tabel (może być NULL, jeśli plik jest tymczasowy lub nieprzypisany)
-    report_id uuid REFERENCES public.reports(id) ON DELETE CASCADE,
-    note_id uuid REFERENCES public.notes(id) ON DELETE CASCADE,
-    chat_id uuid REFERENCES public.chat_messages(id) ON DELETE CASCADE
+    -- Powiązania z innymi tabelami (tylko jedno może być ustawione)
+    report_id uuid REFERENCES reports(id) ON DELETE SET NULL,
+    note_id uuid REFERENCES notes(id) ON DELETE SET NULL,
+    chat_id uuid REFERENCES chat_messages(id) ON DELETE SET NULL
 );
 
-ALTER TABLE public.attachments ENABLE ROW LEVEL SECURITY;
+-- Włączanie Row Level Security (RLS)
+ALTER TABLE attachments ENABLE ROW LEVEL SECURITY;
 
--- Polityka: Właściciel może widzieć i modyfikować swoje załączniki
-CREATE POLICY "Owners can manage their attachments"
-ON public.attachments
-FOR ALL
-USING (auth.uid() = owner_id)
+-- Polityka: Wszyscy zalogowani użytkownicy mogą czytać załączniki
+CREATE POLICY "Allow authenticated users to view attachments"
+ON attachments FOR SELECT
+TO authenticated
+USING (true);
+
+-- Polityka: Użytkownik może tworzyć załączniki
+CREATE POLICY "Allow users to insert their own attachments"
+ON attachments FOR INSERT
+TO authenticated
 WITH CHECK (auth.uid() = owner_id);
 
--- Polityka: Użytkownicy mogą widzieć załączniki, jeśli mają dostęp do raportu/notatki (wymaga bardziej złożonej logiki RLS, ale na razie wystarczy, że właściciel widzi)
--- W praktyce, dostęp do załączników powinien być kontrolowany przez dostęp do nadrzędnego raportu/notatki.
--- Na potrzeby tego projektu, skupiamy się na tym, że właściciel może zarządzać swoimi plikami.
+-- Polityka: Użytkownik może aktualizować swoje załączniki (np. przypisać report_id)
+CREATE POLICY "Allow owners to update their attachments"
+ON attachments FOR UPDATE
+TO authenticated
+USING (auth.uid() = owner_id);
+
+-- Polityka: Użytkownik może usuwać swoje załączniki
+CREATE POLICY "Allow owners to delete their attachments"
+ON attachments FOR DELETE
+TO authenticated
+USING (auth.uid() = owner_id);
