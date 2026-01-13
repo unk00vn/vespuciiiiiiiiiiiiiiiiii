@@ -30,17 +30,19 @@ export const ChatsPage = () => {
   const fetchChats = async () => {
     if (!profile) return;
     setLoading(true);
-    const { data, error } = await supabase
-      .from("chat_participants")
-      .select(`chat_id, chats(*)`)
-      .eq("user_id", profile.id);
-    
-    if (error) {
-        console.error("Fetch chats error:", error);
-    } else {
+    try {
+        const { data, error } = await supabase
+          .from("chat_participants")
+          .select(`chat_id, chats(*)`)
+          .eq("user_id", profile.id);
+        
+        if (error) throw error;
         setChats(data?.map(d => d.chats).filter(Boolean) || []);
+    } catch (err) {
+        console.error("Fetch chats error:", err);
+    } finally {
+        setLoading(false);
     }
-    setLoading(false);
   };
 
   const fetchMessages = async (chatId: string) => {
@@ -55,7 +57,7 @@ export const ChatsPage = () => {
             const scrollContainer = scrollRef.current.querySelector('[data-radix-scroll-area-viewport]');
             if (scrollContainer) scrollContainer.scrollTop = scrollContainer.scrollHeight;
         }
-    }, 50);
+    }, 100);
   };
 
   useEffect(() => {
@@ -68,7 +70,15 @@ export const ChatsPage = () => {
     fetchMessages(activeChat.id);
     const channel = supabase.channel(`chat_${activeChat.id}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages', filter: `chat_id=eq.${activeChat.id}` }, (p) => {
-        setMessages(prev => [...prev, p.new]);
+        if (p.new.chat_id === activeChat.id) {
+            setMessages(prev => [...prev, p.new]);
+            setTimeout(() => {
+                if (scrollRef.current) {
+                    const scrollContainer = scrollRef.current.querySelector('[data-radix-scroll-area-viewport]');
+                    if (scrollContainer) scrollContainer.scrollTop = scrollContainer.scrollHeight;
+                }
+            }, 100);
+        }
       }).subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [activeChat]);
@@ -94,28 +104,35 @@ export const ChatsPage = () => {
         return;
     }
 
-    const { data: chat, error: chatError } = await supabase
-        .from("chats")
-        .insert({ name: name || null, is_group: members.length > 1 })
-        .select()
-        .single();
+    try {
+        const { data: chat, error: chatError } = await supabase
+            .from("chats")
+            .insert({ 
+                name: name.trim() || null, 
+                is_group: members.length > 1 
+            })
+            .select()
+            .single();
 
-    if (chatError) {
-        console.error(chatError);
-        return toast.error("Błąd tworzenia pokoju.");
-    }
-    
-    const participants = [...members, profile!.id].map(uid => ({ chat_id: chat.id, user_id: uid }));
-    const { error: partError } = await supabase.from("chat_participants").insert(participants);
-    
-    if (partError) {
-        console.error(partError);
-        return toast.error("Błąd zapisu uczestników.");
-    }
+        if (chatError) throw chatError;
 
-    toast.success("Konwersacja rozpoczęta.");
-    await fetchChats();
-    setActiveChat(chat);
+        // Budujemy unikalną listę uczestników (włączając siebie)
+        const uniqueMembers = Array.from(new Set([...members, profile!.id]));
+        const participants = uniqueMembers.map(uid => ({ 
+            chat_id: chat.id, 
+            user_id: uid 
+        }));
+
+        const { error: partError } = await supabase.from("chat_participants").insert(participants);
+        if (partError) throw partError;
+
+        toast.success("Konwersacja rozpoczęta.");
+        await fetchChats();
+        setActiveChat(chat);
+    } catch (err: any) {
+        console.error("Create chat error:", err);
+        toast.error("Błąd tworzenia rozmowy: " + err.message);
+    }
   };
 
   return (
@@ -137,9 +154,9 @@ export const ChatsPage = () => {
                     <div className="h-10 w-10 bg-lapd-navy rounded flex items-center justify-center border border-lapd-gold/30">
                       {c.is_group ? <Users className="h-5 w-5 text-lapd-gold" /> : <User className="h-5 w-5 text-lapd-gold" />}
                     </div>
-                    <div>
-                      <p className="text-xs font-bold text-white uppercase truncate w-40">{c.name || "Rozmowa prywatna"}</p>
-                      <p className="text-[10px] text-slate-500 font-mono">ID: {c.id.substring(0,6)}</p>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-bold text-white uppercase truncate">{c.name || "Rozmowa prywatna"}</p>
+                      <p className="text-[10px] text-slate-500 font-mono">#{c.id.substring(0,8)}</p>
                     </div>
                   </div>
                 </div>
@@ -176,17 +193,20 @@ export const ChatsPage = () => {
             </ScrollArea>
             <div className="p-4 bg-lapd-navy/50 border-t border-white/10">
                 <div className="flex gap-2">
-                    <FileUploadWidget parentType="chat" parentId={activeChat.id} onUploadSuccess={(files) => {
-                        supabase.from("chat_messages").insert({
+                    <FileUploadWidget parentType="chat" parentId={activeChat.id} onUploadSuccess={async (files) => {
+                        const { data, error } = await supabase.from("chat_messages").insert({
                             chat_id: activeChat.id,
                             author_id: profile?.id,
                             content: "Przesłano załącznik fotograficzny.",
                             user_name: `${profile?.first_name} ${profile?.last_name}`,
                             badge_number: profile?.badge_number
-                        }).select().single().then(({data, error}) => {
-                            if (error) return toast.error("Błąd wysyłania zdjęcia.");
-                            if (data) supabase.from("attachments").update({ chat_id: data.id }).in('id', files.map(f => f.id)).then(() => fetchMessages(activeChat.id));
-                        });
+                        }).select().single();
+
+                        if (error) return toast.error("Błąd wysyłania zdjęcia.");
+                        if (data) {
+                            await supabase.from("attachments").update({ chat_id: data.id }).in('id', files.map(f => f.id));
+                            fetchMessages(activeChat.id);
+                        }
                     }} />
                     <div className="flex-1 flex gap-2">
                         <Input value={newMessage} onChange={e => setNewMessage(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleSendMessage()} placeholder="WPISZ WIADOMOŚĆ..." className="bg-black/40 border-lapd-gold/30 text-white" />
@@ -207,32 +227,50 @@ export const ChatsPage = () => {
 };
 
 const NewChatDialog = ({ officers, onCreated }: { officers: any[], onCreated: (name: string, members: string[]) => void }) => {
+    const { profile } = useAuth();
     const [selected, setSelected] = useState<string[]>([]);
     const [name, setName] = useState("");
     const [open, setOpen] = useState(false);
 
+    const filteredOfficers = officers.filter(o => o.id !== profile?.id);
+
     return (
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild><Button variant="ghost" size="icon" className="text-lapd-gold hover:bg-white/10"><Plus className="h-5 w-5" /></Button></DialogTrigger>
-            <DialogContent className="bg-lapd-darker border-lapd-gold text-white">
+            <DialogContent className="bg-[#0A1A2F] border-2 border-lapd-gold text-white">
                 <DialogHeader><DialogTitle className="text-lapd-gold uppercase font-black">Nowa Konwersacja</DialogTitle></DialogHeader>
                 <div className="space-y-4 py-4">
                     <div className="space-y-2">
-                        <Label className="uppercase text-[10px] font-bold">Nazwa Grupy (opcjonalnie)</Label>
+                        <Label className="uppercase text-[10px] font-bold text-lapd-gold">Nazwa Grupy (opcjonalnie)</Label>
                         <Input value={name} onChange={e => setName(e.target.value)} placeholder="np. Patrol 1" className="bg-black/40 border-lapd-gold/30 text-white" />
                     </div>
-                    <Label className="uppercase text-[10px] font-bold">Wybierz funkcjonariuszy</Label>
-                    <ScrollArea className="h-60 border border-white/10 rounded p-2">
-                        {officers.map(o => (
-                            <div key={o.id} className="flex items-center gap-3 p-2 hover:bg-white/5 rounded">
-                                <Checkbox id={`user-${o.id}`} checked={selected.includes(o.id)} onCheckedChange={(c) => setSelected(prev => c ? [...prev, o.id] : prev.filter(i => i !== o.id))} className="border-lapd-gold" />
+                    <Label className="uppercase text-[10px] font-bold text-lapd-gold">Wybierz uczestników</Label>
+                    <ScrollArea className="h-60 border border-white/10 rounded p-2 bg-black/20">
+                        {filteredOfficers.map(o => (
+                            <div key={o.id} className="flex items-center gap-3 p-2 hover:bg-white/5 rounded transition-colors">
+                                <Checkbox 
+                                  id={`user-${o.id}`} 
+                                  checked={selected.includes(o.id)} 
+                                  onCheckedChange={(c) => setSelected(prev => c ? [...prev, o.id] : prev.filter(i => i !== o.id))} 
+                                  className="border-lapd-gold data-[state=checked]:bg-lapd-gold data-[state=checked]:text-lapd-navy" 
+                                />
                                 <Label htmlFor={`user-${o.id}`} className="text-xs font-bold cursor-pointer text-white">#{o.badge_number} {o.last_name}</Label>
                             </div>
                         ))}
                     </ScrollArea>
                 </div>
                 <DialogFooter>
-                    <Button onClick={() => { onCreated(name, selected); setOpen(false); setSelected([]); setName(""); }} className="bg-lapd-gold text-lapd-navy font-black w-full uppercase">UTWÓRZ KANAŁ</Button>
+                    <Button 
+                      onClick={() => { 
+                        onCreated(name, selected); 
+                        setOpen(false); 
+                        setSelected([]); 
+                        setName(""); 
+                      }} 
+                      className="bg-lapd-gold text-lapd-navy font-black w-full uppercase hover:bg-yellow-500"
+                    >
+                      UTWÓRZ KANAŁ
+                    </Button>
                 </DialogFooter>
             </DialogContent>
         </Dialog>

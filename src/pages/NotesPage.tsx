@@ -85,7 +85,7 @@ const NotesPage = () => {
         .eq("id", editingNote.id);
     
     if (error) {
-        toast.error("Błąd aktualizacji.");
+        toast.error("Błąd aktualizacji: " + error.message);
     } else {
         toast.success("Notatka zaktualizowana.");
         setEditingNote(null);
@@ -145,11 +145,11 @@ const NotesPage = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {notes.map(n => (
             <Card key={n.id} className="border border-white/10 bg-white/5 flex flex-col group overflow-hidden">
-              <CardHeader className="pb-3 border-b border-white/5 flex justify-between items-center">
-                <CardTitle className="text-sm font-bold text-white uppercase truncate">{n.title}</CardTitle>
-                {n.author_id === profile?.id && (
-                    <Button variant="ghost" size="icon" className="h-6 w-6 text-lapd-gold opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => setEditingNote(n)}>
-                        <Edit className="h-3 w-3" />
+              <CardHeader className="pb-3 border-b border-white/5 flex justify-between items-center bg-black/20">
+                <CardTitle className="text-sm font-bold text-white uppercase truncate flex-1">{n.title}</CardTitle>
+                {String(n.author_id) === String(profile?.id) && (
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-lapd-gold hover:bg-lapd-gold/20" onClick={() => setEditingNote({...n})}>
+                        <Edit className="h-4 w-4" />
                     </Button>
                 )}
               </CardHeader>
@@ -163,7 +163,7 @@ const NotesPage = () => {
               </CardContent>
               <CardFooter className="pt-3 border-t border-white/5 flex justify-between items-center bg-black/10">
                 <Badge className="bg-lapd-gold text-black text-[9px] font-black">
-                    {n.author_id === profile?.id ? "WŁASNA" : "SYSTEMOWA"}
+                    {String(n.author_id) === String(profile?.id) ? "WŁASNA" : "SYSTEMOWA"}
                 </Badge>
                 <span className="text-[9px] text-slate-500 font-mono">{new Date(n.created_at).toLocaleDateString()}</span>
               </CardFooter>
@@ -179,23 +179,39 @@ const NotesPage = () => {
       )}
 
       {/* OKNO EDYCJI */}
-      <Dialog open={!!editingNote} onOpenChange={() => !saving && setEditingNote(null)}>
-          <DialogContent className="bg-lapd-darker border-lapd-gold text-white">
-              <DialogHeader><DialogTitle className="text-lapd-gold uppercase font-black">Edytuj Notatkę</DialogTitle></DialogHeader>
+      <Dialog open={!!editingNote} onOpenChange={(open) => !open && setEditingNote(null)}>
+          <DialogContent className="bg-[#0A1A2F] border-2 border-lapd-gold text-white max-w-2xl">
+              <DialogHeader>
+                <DialogTitle className="text-lapd-gold uppercase font-black tracking-tighter text-xl">
+                  Edycja Notatki Operacyjnej
+                </DialogTitle>
+              </DialogHeader>
               <div className="space-y-4 py-4">
                 <div className="space-y-2">
-                    <Label className="uppercase text-[10px] font-bold">Tytuł</Label>
-                    <Input value={editingNote?.title || ""} onChange={e => setEditingNote({...editingNote, title: e.target.value})} className="bg-black/40 border-lapd-gold/30 text-white" />
+                    <Label className="uppercase text-[10px] font-bold text-lapd-gold">Tytuł</Label>
+                    <Input 
+                      value={editingNote?.title || ""} 
+                      onChange={e => setEditingNote({...editingNote, title: e.target.value})} 
+                      className="bg-black/40 border-lapd-gold/30 text-white focus:ring-lapd-gold" 
+                    />
                 </div>
                 <div className="space-y-2">
-                    <Label className="uppercase text-[10px] font-bold">Treść</Label>
-                    <Textarea rows={6} value={editingNote?.content || ""} onChange={e => setEditingNote({...editingNote, content: e.target.value})} className="bg-black/40 border-lapd-gold/30 text-white" />
+                    <Label className="uppercase text-[10px] font-bold text-lapd-gold">Treść</Label>
+                    <Textarea 
+                      rows={8} 
+                      value={editingNote?.content || ""} 
+                      onChange={e => setEditingNote({...editingNote, content: e.target.value})} 
+                      className="bg-black/40 border-lapd-gold/30 text-white min-h-[200px]" 
+                    />
                 </div>
               </div>
-              <DialogFooter>
-                  <Button variant="outline" className="text-white border-white/20" onClick={() => setEditingNote(null)} disabled={saving}>Anuluj</Button>
-                  <Button onClick={handleUpdate} disabled={saving} className="bg-lapd-gold text-lapd-navy font-black">
-                      {saving ? <Loader2 className="animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />} ZAPISZ ZMIANY
+              <DialogFooter className="gap-2">
+                  <Button variant="outline" className="text-white border-white/20 hover:bg-white/10" onClick={() => setEditingNote(null)} disabled={saving}>
+                    ANULUJ
+                  </Button>
+                  <Button onClick={handleUpdate} disabled={saving} className="bg-lapd-gold text-lapd-navy font-black hover:bg-yellow-500">
+                      {saving ? <Loader2 className="animate-spin mr-2 h-4 w-4" /> : <Save className="h-4 w-4 mr-2" />} 
+                      ZAPISZ ZMIANY
                   </Button>
               </DialogFooter>
           </DialogContent>
