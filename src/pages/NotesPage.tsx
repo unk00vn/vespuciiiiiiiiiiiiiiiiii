@@ -136,7 +136,7 @@ const NotesPage = () => {
     setLoading(true);
     
     try {
-        // Pobieramy notatki, w tym informacje o współpracownikach
+        // 1. Pobieramy notatki, których jestem autorem, wraz z ich udostępnieniami
         const { data: myNotes, error: myNotesError } = await supabase
           .from("notes")
           .select("*, note_shares(profile_id)")
@@ -144,15 +144,27 @@ const NotesPage = () => {
           
         if (myNotesError) throw myNotesError;
           
-        const { data: shared, error: sharedError } = await supabase
+        // 2. Pobieramy ID notatek, które zostały mi udostępnione
+        const { data: sharedIds, error: sharedIdsError } = await supabase
           .from("note_shares")
-          .select("notes(*, note_shares(profile_id))")
+          .select("note_id")
           .eq("profile_id", profile.id);
           
-        if (sharedError) throw sharedError;
+        if (sharedIdsError) throw sharedIdsError;
         
-        // Supabase zwraca 'notes' jako obiekt, musimy go spłaszczyć
-        const sharedNotes = shared?.map(s => s.notes).filter(Boolean) as Note[] || [];
+        const sharedNoteIds = sharedIds?.map(s => s.note_id) || [];
+        
+        let sharedNotes: Note[] = [];
+        if (sharedNoteIds.length > 0) {
+            // 3. Pobieramy udostępnione notatki (bez rekursywnego zagnieżdżenia)
+            const { data: sharedData, error: sharedDataError } = await supabase
+                .from("notes")
+                .select("*, note_shares(profile_id)")
+                .in("id", sharedNoteIds);
+            
+            if (sharedDataError) throw sharedDataError;
+            sharedNotes = sharedData as Note[];
+        }
         
         // Łączymy i usuwamy duplikaty
         const combinedMap = new Map<string, Note>();
@@ -191,12 +203,12 @@ const NotesPage = () => {
         toast.error("Błąd dodawania notatki: " + error.message);
     } else {
         toast.success("Notatka zapisana.");
-        setIsAdding(false);
-        setNewNote({ title: "", content: "" });
-        fetchNotes(); // Odśwież listę po zapisie
     }
     
     setSavingNew(false);
+    setIsAdding(false);
+    setNewNote({ title: "", content: "" });
+    fetchNotes();
   };
   
   const handleEdit = (note: Note) => {
