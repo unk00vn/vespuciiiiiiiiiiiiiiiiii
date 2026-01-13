@@ -5,6 +5,7 @@ import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Home, FileText, Bell, Users, MessageSquare, User, LogOut, ClipboardList, ShieldCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAuth, UserRole } from "@/contexts/AuthContext"; // Import useAuth and UserRole
 
 interface SidebarProps {
   className?: string;
@@ -18,15 +19,15 @@ const navItems = [
   { name: "Notatki", icon: ClipboardList, path: "/notes" },
   { name: "Czat", icon: MessageSquare, path: "/chat" },
   { name: "Profil", icon: User, path: "/profile" },
-  { name: "Zarządzanie kontami", icon: ShieldCheck, path: "/account-management" }, // For LT, CPT, HC
+  { name: "Zarządzanie kontami", icon: ShieldCheck, path: "/account-management", requiredRoles: ["Lieutenant", "Captain", "High Command"] as UserRole[] }, // For LT, CPT, HC
 ];
 
 export const Sidebar = ({ className }: SidebarProps) => {
-  // Placeholder for user role, will be fetched from Supabase
-  const userRole = "Officer"; // Example role
+  const { profile, signOut } = useAuth();
+  const userRole = profile?.role_name;
 
   const filteredNavItems = navItems.filter(item => {
-    if (item.path === "/account-management" && !["LT", "CPT", "HC"].includes(userRole)) {
+    if (item.requiredRoles && userRole && !item.requiredRoles.includes(userRole)) {
       return false;
     }
     return true;
@@ -56,7 +57,7 @@ export const Sidebar = ({ className }: SidebarProps) => {
         <Button
           variant="ghost"
           className="w-full justify-start text-lapd-white hover:bg-lapd-gold hover:text-lapd-navy transition-colors duration-200"
-          onClick={() => console.log("Logout")} // Placeholder for logout logic
+          onClick={signOut}
         >
           <LogOut className="h-5 w-5 mr-3" />
           <span>Wyloguj</span>

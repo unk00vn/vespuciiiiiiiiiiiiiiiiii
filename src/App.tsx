@@ -3,11 +3,13 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { Layout } from "./components/Layout"; // Import the new Layout component
-import Dashboard from "./pages/Dashboard"; // Renamed from Index
+import { Layout } from "./components/Layout";
+import Dashboard from "./pages/Dashboard";
 import NotFound from "./pages/NotFound";
-import LoginPage from "./pages/LoginPage"; // Import LoginPage
-import RegisterPage from "./pages/RegisterPage"; // Import RegisterPage
+import LoginPage from "./pages/LoginPage";
+import RegisterPage from "./pages/RegisterPage";
+import AccountManagementPage from "./pages/AccountManagementPage"; // Import AccountManagementPage
+import { AuthProvider, ProtectedRoute } from "./contexts/AuthContext";
 
 const queryClient = new QueryClient();
 
@@ -17,22 +19,30 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <Routes>
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/register" element={<RegisterPage />} />
-          <Route
-            path="/*"
-            element={
-              <Layout>
-                <Routes>
-                  <Route path="/" element={<Dashboard />} />
-                  {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-                  <Route path="*" element={<NotFound />} />
-                </Routes>
-              </Layout>
-            }
-          />
-        </Routes>
+        <AuthProvider>
+          <Routes>
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/register" element={<RegisterPage />} />
+            <Route
+              path="/*"
+              element={
+                <ProtectedRoute>
+                  <Layout>
+                    <Routes>
+                      <Route path="/" element={<Dashboard />} />
+                      <Route
+                        path="/account-management"
+                        element={<ProtectedRoute allowedRoles={["Lieutenant", "Captain", "High Command"]}><AccountManagementPage /></ProtectedRoute>}
+                      />
+                      {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+                      <Route path="*" element={<NotFound />} />
+                    </Routes>
+                  </Layout>
+                </ProtectedRoute>
+              }
+            />
+          </Routes>
+        </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>

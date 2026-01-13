@@ -1,22 +1,26 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Link, useNavigate } from "react-router-dom";
-import { toast } from "sonner"; // Using sonner for toasts
+import { Link } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "sonner";
 
 const LoginPage = () => {
-  const navigate = useNavigate();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const { signIn, loading } = useAuth();
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Placeholder for Supabase login logic
-    console.log("Attempting to log in...");
-    toast.success("Zalogowano pomyślnie! (Placeholder)");
-    navigate("/"); // Redirect to dashboard after successful login
+    const { error } = await signIn(email, password);
+    if (error) {
+      // Error message is already shown by toast in AuthContext
+      console.error("Login failed:", error.message);
+    }
   };
 
   return (
@@ -35,6 +39,8 @@ const LoginPage = () => {
                 type="email"
                 placeholder="john.doe@lspd.com"
                 required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 className="mt-1 border-lapd-gold focus:ring-lapd-gold focus:border-lapd-gold"
               />
             </div>
@@ -45,11 +51,13 @@ const LoginPage = () => {
                 type="password"
                 placeholder="********"
                 required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
                 className="mt-1 border-lapd-gold focus:ring-lapd-gold focus:border-lapd-gold"
               />
             </div>
-            <Button type="submit" className="w-full bg-lapd-gold text-lapd-navy hover:bg-yellow-600 transition-colors duration-200">
-              Zaloguj
+            <Button type="submit" className="w-full bg-lapd-gold text-lapd-navy hover:bg-yellow-600 transition-colors duration-200" disabled={loading}>
+              {loading ? "Logowanie..." : "Zaloguj"}
             </Button>
           </form>
           <p className="mt-6 text-center text-sm text-gray-600">
