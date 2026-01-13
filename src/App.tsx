@@ -11,8 +11,9 @@ import RegisterPage from "./pages/RegisterPage";
 import AccountManagementPage from "./pages/AccountManagementPage";
 import ProfilePage from "./pages/ProfilePage";
 import ReportsPage from "./pages/ReportsPage";
-import DivisionsPage from "./pages/DivisionsPage"; // Import DivisionsPage
+import DivisionsPage from "./pages/DivisionsPage";
 import { AuthProvider, ProtectedRoute } from "./contexts/AuthContext";
+import CreateAdminUser from "./components/CreateAdminUser"; // Import the temporary component
 
 const queryClient = new QueryClient();
 
@@ -23,6 +24,8 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <AuthProvider>
+          {/* Temporary component to create admin user - REMOVE AFTER USE */}
+          <CreateAdminUser /> 
           <Routes>
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
@@ -35,7 +38,7 @@ const App = () => (
                       <Route path="/" element={<Dashboard />} />
                       <Route path="/profile" element={<ProfilePage />} />
                       <Route path="/reports" element={<ReportsPage />} />
-                      <Route path="/divisions" element={<DivisionsPage />} /> {/* Add DivisionsPage route */}
+                      <Route path="/divisions" element={<DivisionsPage />} />
                       <Route
                         path="/account-management"
                         element={<ProtectedRoute allowedRoles={["Lieutenant", "Captain", "High Command"]}><AccountManagementPage /></ProtectedRoute>}
