@@ -17,6 +17,7 @@ import AnnouncementsPage from "./pages/AnnouncementsPage";
 import NotesPage from "./pages/NotesPage";
 import CreateReportPage from "./pages/CreateReportPage";
 import PersonnelPage from "./pages/PersonnelPage";
+import ChatsPage from "./pages/ChatsPage";
 import { AuthProvider, ProtectedRoute } from "./contexts/AuthContext";
 
 const queryClient = new QueryClient();
@@ -44,6 +45,7 @@ const App = () => (
                     <Route path="/announcements" element={<AnnouncementsPage />} />
                     <Route path="/notes" element={<NotesPage />} />
                     <Route path="/personnel" element={<PersonnelPage />} />
+                    <Route path="/chats" element={<ChatsPage />} />
                     <Route path="/account-management" element={
                       <ProtectedRoute allowedRoles={["Lieutenant", "Captain", "High Command"]}>
                         <AccountManagementPage />

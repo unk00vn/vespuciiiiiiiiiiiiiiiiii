@@ -12,7 +12,8 @@ import {
   LogOut, 
   ClipboardList, 
   ShieldCheck,
-  Contact
+  Contact,
+  MessageSquare
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth, UserRole } from "@/contexts/AuthContext";
@@ -21,6 +22,7 @@ const navItems = [
   { name: "DASHBOARD", icon: Home, path: "/" },
   { name: "RAPORTY", icon: FileText, path: "/reports" },
   { name: "PERSONEL", icon: Contact, path: "/personnel" },
+  { name: "CHATY", icon: MessageSquare, path: "/chats" },
   { name: "DYWIZJE", icon: Users, path: "/divisions" },
   { name: "OGŁOSZENIA", icon: Bell, path: "/announcements" },
   { name: "BAZA NOTATEK", icon: ClipboardList, path: "/notes" },
