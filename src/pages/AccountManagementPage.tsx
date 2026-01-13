@@ -72,6 +72,7 @@ const AccountManagementPage = () => {
         role_name: p.roles.name as UserRole,
         role_level: p.roles.level,
         division_id: p.divisions?.id || undefined,
+        division_name: p.divisions?.name || undefined, // Dodano division_name
         status: p.status as "pending" | "approved" | "rejected",
         avatar_url: p.avatar_url || undefined,
       }));
