@@ -21,6 +21,7 @@ export const ChatWidget = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(false);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const scrollToBottom = () => {
     if (scrollAreaRef.current) {
@@ -30,7 +31,7 @@ export const ChatWidget = () => {
   };
 
   const fetchHistory = async () => {
-    if (!profile) return;
+    if (!profile?.id) return;
     setIsLoading(true);
     setError(false);
 
@@ -43,9 +44,9 @@ export const ChatWidget = () => {
 
       if (sbError) throw sbError;
       setMessages(data || []);
-      setTimeout(scrollToBottom, 100);
+      if (scrollTimeoutRef.current) clearTimeout(scrollTimeoutRef.current);
+      scrollTimeoutRef.current = setTimeout(scrollToBottom, 100);
     } catch (err) {
-      console.error("Chat fetch error:", err);
       setError(true);
     } finally {
       setIsLoading(false);
@@ -53,27 +54,36 @@ export const ChatWidget = () => {
   };
 
   useEffect(() => {
-    if (profile && isOpen) {
+    let isMounted = true;
+    let channel: any = null;
+
+    if (profile?.id && isOpen) {
       fetchHistory();
 
-      const channel = supabase
+      channel = supabase
         .channel("public:chat_messages")
         .on("postgres_changes", { event: "INSERT", schema: "public", table: "chat_messages" }, (payload) => {
-          if (document.visibilityState === 'visible') {
+          if (isMounted && document.visibilityState === 'visible') {
             setMessages((prev) => [...prev, payload.new]);
-            setTimeout(scrollToBottom, 50);
+            if (scrollTimeoutRef.current) clearTimeout(scrollTimeoutRef.current);
+            scrollTimeoutRef.current = setTimeout(scrollToBottom, 50);
           }
         })
         .subscribe();
-
-      return () => { 
-        supabase.removeChannel(channel); 
-      };
     }
-  }, [profile, isOpen]);
+
+    return () => { 
+      isMounted = false;
+      if (channel) supabase.removeChannel(channel);
+      if (scrollTimeoutRef.current) clearTimeout(scrollTimeoutRef.current);
+    };
+  }, [profile?.id, isOpen]);
 
   useEffect(() => {
-    if (isOpen) setTimeout(scrollToBottom, 100);
+    if (isOpen) {
+        if (scrollTimeoutRef.current) clearTimeout(scrollTimeoutRef.current);
+        scrollTimeoutRef.current = setTimeout(scrollToBottom, 100);
+    }
   }, [isOpen, messages.length, isWide]);
 
   const handleSendMessage = async () => {
@@ -94,21 +104,21 @@ export const ChatWidget = () => {
 
   if (!isOpen) {
     return (
-      <Button
-        className="fixed bottom-6 right-6 rounded-full h-14 w-14 bg-lapd-gold text-lapd-navy hover:bg-yellow-600 shadow-xl z-50"
+      <button
+        className="fixed bottom-6 right-6 rounded-full h-14 w-14 bg-lapd-gold text-black hover:bg-yellow-600 shadow-xl z-50 flex items-center justify-center transition-transform hover:scale-110 active:scale-95"
         onClick={() => setIsOpen(true)}
       >
         <MessageCircle className="h-6 w-6" />
-      </Button>
+      </button>
     );
   }
 
   return (
     <Card className={cn(
-      "fixed bottom-6 right-6 bg-lapd-darker border-2 border-lapd-gold shadow-2xl z-50 flex flex-col transition-all duration-300",
+      "fixed bottom-6 right-6 bg-[#050b14] border-2 border-lapd-gold shadow-2xl z-50 flex flex-col transition-all duration-300",
       isWide ? "w-[600px] h-[350px]" : "w-80 h-[500px]"
     )}>
-      <CardHeader className="flex flex-row items-center justify-between p-3 bg-lapd-navy border-b border-lapd-gold/30">
+      <CardHeader className="flex flex-row items-center justify-between p-3 bg-lapd-navy/50 border-b border-lapd-gold/30">
         <CardTitle className="text-white text-[10px] font-black flex items-center uppercase tracking-tighter">
           <div className={cn("h-2 w-2 rounded-full mr-2 animate-pulse", error ? "bg-red-500" : "bg-green-500")} />
           KANAŁ OPERACYJNY
@@ -146,7 +156,7 @@ export const ChatWidget = () => {
             )}
           </div>
         </ScrollArea>
-        <div className="p-3 bg-lapd-navy/50 border-t border-lapd-gold/20 flex gap-2">
+        <div className="p-3 bg-lapd-navy/30 border-t border-lapd-gold/20 flex gap-2">
           <Input
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
@@ -154,7 +164,7 @@ export const ChatWidget = () => {
             placeholder="NADAJ..."
             className="bg-black/60 border-lapd-gold/30 text-white text-xs h-9"
           />
-          <Button size="sm" className="bg-lapd-gold text-lapd-navy h-9" onClick={handleSendMessage} disabled={isSending || error}>
+          <Button size="sm" className="bg-lapd-gold text-black h-9 hover:bg-yellow-600" onClick={handleSendMessage} disabled={isSending || error}>
             <Send className="h-4 w-4" />
           </Button>
         </div>

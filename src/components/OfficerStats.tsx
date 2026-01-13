@@ -16,21 +16,31 @@ export const OfficerStats = () => {
   });
 
   useEffect(() => {
+    let isMounted = true;
     const fetchOfficerStats = async () => {
-      if (!profile) return;
+      if (!profile?.id) return;
       try {
-        const { count: s } = await supabase.from("reports").select("*", { count: 'exact', head: true }).eq("author_id", profile.id);
-        const { count: r } = await supabase.from("reports").select("*", { count: 'exact', head: true }).eq("recipient_id", profile.id);
-        setStatsData({ reportsSent: s || 0, reportsReceived: r || 0, loginsCount: 24, loading: false });
+        const [sentRes, receivedRes] = await Promise.all([
+            supabase.from("reports").select("*", { count: 'exact', head: true }).eq("author_id", profile.id),
+            supabase.from("reports").select("*", { count: 'exact', head: true }).eq("recipient_id", profile.id)
+        ]);
+        
+        if (isMounted) {
+            setStatsData({ 
+                reportsSent: sentRes.count || 0, 
+                reportsReceived: receivedRes.count || 0, 
+                loginsCount: 24, 
+                loading: false 
+            });
+        }
       } catch (e) { 
-        console.error("Stats fetch error:", e);
-        setStatsData(prev => ({ ...prev, loading: false })); 
+        if (isMounted) setStatsData(prev => ({ ...prev, loading: false })); 
       }
     };
     fetchOfficerStats();
-  }, [profile]);
+    return () => { isMounted = false; };
+  }, [profile?.id]); // Stabilna zależność
 
-  // ... (reszta komponentu bez zmian)
   const stats = [
     { label: "RAPORTY WYSŁANE", value: statsData.reportsSent, icon: <Send className="h-4 w-4" /> },
     { label: "RAPORTY ODEBRANE", value: statsData.reportsReceived, icon: <FileText className="h-4 w-4" /> },

@@ -14,21 +14,32 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let isMounted = true;
     const fetchStats = async () => {
-      if (!profile) return;
+      if (!profile?.id) return;
       try {
         const [rCount, oCount, pCount] = await Promise.all([
           supabase.from("reports").select("*", { count: 'exact', head: true }).eq("recipient_id", profile.id).eq("status", "Oczekujący"),
           supabase.from("profiles").select("*", { count: 'exact', head: true }).eq("status", "approved"),
           supabase.from("profiles").select("*", { count: 'exact', head: true }).eq("status", "pending")
         ]);
-        setStats({ reportsToReview: rCount.count || 0, totalOfficers: oCount.count || 0, pendingAccounts: pCount.count || 0 });
+        if (isMounted) {
+          setStats({ 
+            reportsToReview: rCount.count || 0, 
+            totalOfficers: oCount.count || 0, 
+            pendingAccounts: pCount.count || 0 
+          });
+        }
+      } catch (err) {
+        console.error("Dashboard stats error:", err);
       } finally {
-        setLoading(false);
+        if (isMounted) setLoading(false);
       }
     };
+    
     fetchStats();
-  }, [profile]);
+    return () => { isMounted = false; };
+  }, [profile?.id]); // Używamy ID zamiast całego obiektu
 
   return (
     <div className="flex flex-col gap-8 max-w-7xl mx-auto">
@@ -49,7 +60,9 @@ const Dashboard = () => {
               <div className="text-lapd-gold">{s.icon}</div>
             </CardHeader>
             <CardContent>
-              <div className="text-4xl font-mono font-black text-white">{loading ? <Loader2 className="animate-spin h-6 w-6" /> : s.val}</div>
+              <div className="text-4xl font-mono font-black text-white">
+                {loading ? <Loader2 className="animate-spin h-6 w-6" /> : s.val}
+              </div>
             </CardContent>
           </Card>
         ))}
