@@ -13,7 +13,8 @@ import {
   LogOut, 
   ClipboardList, 
   ShieldCheck,
-  AlertTriangle
+  AlertTriangle,
+  Database
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth, UserRole } from "@/contexts/AuthContext";
@@ -24,19 +25,19 @@ interface SidebarProps {
 
 const navItems = [
   { name: "Dashboard", icon: Home, path: "/" },
+  { name: "Baza Danych", icon: Database, path: "/database" },
   { name: "Raporty", icon: FileText, path: "/reports" },
   { name: "Zgłoś Incydent", icon: AlertTriangle, path: "/incident-report" },
   { name: "Dywizje", icon: Users, path: "/divisions" },
   { name: "Ogłoszenia", icon: Bell, path: "/announcements" },
   { name: "Notatki", icon: ClipboardList, path: "/notes" },
-  { name: "Czat", icon: MessageSquare, path: "/chat" },
   { name: "Profil", icon: User, path: "/profile" },
   { 
     name: "Zarządzanie kontami", 
     icon: ShieldCheck, 
     path: "/account-management", 
     requiredRoles: ["Lieutenant", "Captain", "High Command"] as UserRole[] 
-  }, // For LT, CPT, HC
+  },
 ];
 
 export const Sidebar = ({ className }: SidebarProps) => {

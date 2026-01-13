@@ -16,6 +16,7 @@ import AnnouncementsPage from "./pages/AnnouncementsPage";
 import NotesPage from "./pages/NotesPage";
 import CreateReportPage from "./pages/CreateReportPage";
 import IncidentReportPage from "./pages/IncidentReportPage";
+import DatabasePage from "./pages/DatabasePage";
 import { AuthProvider, ProtectedRoute } from "./contexts/AuthContext";
 
 const queryClient = new QueryClient();
@@ -36,6 +37,7 @@ const App = () => (
                   <Routes>
                     <Route path="/" element={<Dashboard />} />
                     <Route path="/profile" element={<ProfilePage />} />
+                    <Route path="/database" element={<DatabasePage />} />
                     <Route path="/reports" element={<ReportsPage />} />
                     <Route path="/reports/new" element={<CreateReportPage />} />
                     <Route path="/incident-report" element={<IncidentReportPage />} />
@@ -47,7 +49,6 @@ const App = () => (
                         <AccountManagementPage />
                       </ProtectedRoute>
                     } />
-                    {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                     <Route path="*" element={<NotFound />} />
                   </Routes>
                 </Layout>
