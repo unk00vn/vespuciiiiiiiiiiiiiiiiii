@@ -136,7 +136,7 @@ const NotesPage = () => {
     setLoading(true);
     
     try {
-        // 1. Płaskie zapytanie: Notatki, których jestem autorem
+        // 1. Płaskie zapytanie: Notatki, których jestem autorem (tylko *)
         const { data: myNotesData, error: myNotesError } = await supabase
           .from("notes")
           .select("*")
@@ -154,7 +154,7 @@ const NotesPage = () => {
         
         const sharedNoteIds = sharedData?.map(s => s.note_id) || [];
         
-        // 3. Płaskie zapytanie: Prawdziwe notatki, które mi udostępniono
+        // 3. Płaskie zapytanie: Prawdziwe notatki, które mi udostępniono (tylko *)
         let sharedNotesData: Note[] = [];
         if (sharedNoteIds.length > 0) {
             const { data: notesData, error: notesError } = await supabase
@@ -166,7 +166,7 @@ const NotesPage = () => {
             sharedNotesData = notesData as Note[];
         }
         
-        // 4. Płaskie zapytanie: Wszystkie udostępnienia (potrzebne do wyświetlenia ikony 'WSPÓŁPRACA' i zarządzania)
+        // 4. Płaskie zapytanie: Wszystkie udostępnienia dla wszystkich notatek, które mnie dotyczą
         const allNoteIds = [...(myNotesData || []).map(n => n.id), ...sharedNoteIds];
         let allShares: any[] = [];
         if (allNoteIds.length > 0) {
@@ -197,7 +197,11 @@ const NotesPage = () => {
         allShares.forEach(share => {
             const note = combinedMap.get(share.note_id);
             if (note) {
-                note.note_shares?.push({ profile_id: share.profile_id });
+                // Upewnij się, że note_shares jest zainicjowane
+                if (!note.note_shares) {
+                    note.note_shares = [];
+                }
+                note.note_shares.push({ profile_id: share.profile_id });
             }
         });
         
