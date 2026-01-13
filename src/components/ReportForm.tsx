@@ -39,8 +39,8 @@ export const ReportForm = () => {
       .then(({ data }) => setOfficers(data || []));
   }, []);
 
-  const handleAttachmentSuccess = (attachment: any) => {
-    setTempAttachments(prev => [...prev, attachment]);
+  const handleAttachmentSuccess = (attachments: any[]) => {
+    setTempAttachments(prev => [...prev, ...attachments]);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -118,7 +118,7 @@ export const ReportForm = () => {
         {/* Sekcja Załączników PRZED wysłaniem */}
         <div className="border-t border-lapd-gold/20 pt-6">
           <h3 className="text-lapd-gold font-bold text-sm uppercase mb-4 flex items-center">
-            <Paperclip className="h-4 w-4 mr-2" /> Załączniki (Zdjęcia/Dokumenty)
+            <Paperclip className="h-4 w-4 mr-2" /> Załączniki (Zdjęcia)
           </h3>
           <AttachmentList attachments={tempAttachments} canDelete={true} onDelete={(id) => setTempAttachments(prev => prev.filter(a => a.id !== id))} />
           <div className="mt-4">

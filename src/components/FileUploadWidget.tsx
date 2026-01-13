@@ -9,21 +9,29 @@ import { Upload, FileText, Loader2, Paperclip } from "lucide-react";
 
 interface FileUploadWidgetProps {
     parentId: string;
-    parentType: 'report' | 'note';
-    onUploadSuccess: (attachment: any) => void;
+    parentType: 'report' | 'note' | 'chat';
+    onUploadSuccess: (attachments: any[]) => void;
 }
 
 export const FileUploadWidget = ({ parentId, parentType, onUploadSuccess }: FileUploadWidgetProps) => {
-    const { uploadFile, isUploading, progress } = useFileUpload();
+    const { uploadFiles, isUploading, progress } = useFileUpload();
 
     const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files.length > 0) {
             const files = Array.from(e.target.files);
-            for (const file of files) {
-                const options = parentType === 'report' ? { reportId: parentId } : { noteId: parentId };
-                const result = await uploadFile(file, options);
-                if (result) onUploadSuccess(result);
+            
+            const options = {
+                reportId: parentType === 'report' ? parentId : undefined,
+                noteId: parentType === 'note' ? parentId : undefined,
+                chatId: parentType === 'chat' ? parentId : undefined,
+            };
+            
+            const results = await uploadFiles(files, options);
+            if (results.length > 0) {
+                onUploadSuccess(results);
             }
+            // Reset input field
+            e.target.value = '';
         }
     };
 
@@ -42,7 +50,7 @@ export const FileUploadWidget = ({ parentId, parentType, onUploadSuccess }: File
                         className="hidden" 
                         onChange={handleFileChange} 
                         disabled={isUploading}
-                        accept="image/*,application/pdf"
+                        accept="image/*" // Ograniczamy do obrazów, ponieważ ImgBB jest głównie dla obrazów
                     />
                 </label>
             </div>

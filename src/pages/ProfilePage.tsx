@@ -15,7 +15,7 @@ import { useFileUpload } from "@/hooks/useFileUpload";
 
 const ProfilePage = () => {
   const { profile, user, loading, fetchUserProfile } = useAuth();
-  const { uploadFile, isUploading } = useFileUpload();
+  const { uploadFiles, isUploading } = useFileUpload();
   
   const [isEditing, setIsEditing] = useState(false);
   const [firstName, setFirstName] = useState(profile?.first_name || "");
@@ -52,23 +52,26 @@ const ProfilePage = () => {
     if (!file) return;
     
     // Używamy hooka do uploadu, oznaczając, że to zdjęcie profilowe
-    const result = await uploadFile(file, { isProfilePicture: true });
+    const results = await uploadFiles([file], { isProfilePicture: true });
     
-    if (result && 'fileUrl' in result) {
+    if (results && results.length > 0 && 'fileUrl' in results[0]) {
+        const newUrl = results[0].fileUrl;
         // Aktualizujemy stan lokalny i zapisujemy profil
-        setAvatarUrl(result.fileUrl);
+        setAvatarUrl(newUrl);
         
         const { error } = await supabase
             .from("profiles")
-            .update({ avatar_url: result.fileUrl })
+            .update({ avatar_url: newUrl })
             .eq("id", user!.id);
             
         if (error) {
             toast.error("Błąd aktualizacji URL avatara: " + error.message);
         } else {
             await fetchUserProfile(user!.id);
+            toast.success("Zdjęcie profilowe zaktualizowane!");
         }
     }
+    e.target.value = '';
   };
 
   if (loading || !profile) {
