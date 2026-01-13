@@ -5,7 +5,7 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Bell, FileText, Users, AlertTriangle, Loader2 } from "lucide-react";
 import { OfficerStats } from "@/components/OfficerStats";
 import { ReportStatsChart } from "@/components/ReportStatsChart";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 
 const Dashboard = () => {

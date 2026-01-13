@@ -19,8 +19,7 @@ import CreateReportPage from "./pages/CreateReportPage";
 import PersonnelPage from "./pages/PersonnelPage";
 import ChatsPage from "./pages/ChatsPage";
 import { AuthProvider, ProtectedRoute } from "./contexts/AuthContext";
-import { useEffect } from "react";
-import { supabase, testDatabaseConnection } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/supabase";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -33,10 +32,6 @@ const queryClient = new QueryClient({
 });
 
 const App = () => {
-  useEffect(() => {
-    testDatabaseConnection();
-  }, []);
-
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>

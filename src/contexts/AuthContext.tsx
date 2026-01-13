@@ -1,10 +1,9 @@
 "use client";
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { Session, User } from "@supabase/supabase-js";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/supabase";
 import { useNavigate, Navigate } from "react-router-dom";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
 
 export type UserRole = "Officer" | "Sergeant" | "Lieutenant" | "Captain" | "High Command";
 
@@ -80,16 +79,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     let isMounted = true;
     
+    // Zwiększamy timeout dla wolniejszych połączeń produkcyjnych
     const timeout = setTimeout(() => {
       if (isMounted && loading) {
+        console.error("Auth init timeout triggered");
         setLoading(false);
         setError("Auth initialization timed out.");
       }
-    }, 10000);
+    }, 15000);
 
     const initializeAuth = async () => {
       try {
-        const { data: { session: initialSession } } = await supabase.auth.getSession();
+        const { data: { session: initialSession }, error: sessionError } = await supabase.auth.getSession();
+        
+        if (sessionError) throw sessionError;
         if (!isMounted) return;
         
         setSession(initialSession);
@@ -99,8 +102,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           const userProfile = await fetchUserProfile(initialSession.user.id);
           if (isMounted) setProfile(userProfile);
         }
-      } catch (err) {
-        if (isMounted) setError("Failed to initialize authentication");
+      } catch (err: any) {
+        console.error("Auth init error:", err);
+        if (isMounted) setError(err.message || "Failed to initialize authentication");
       } finally {
         if (isMounted) {
           setLoading(false);
@@ -117,9 +121,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setUser(currentSession?.user || null);
       if (currentSession?.user) {
         const userProfile = await fetchUserProfile(currentSession.user.id);
-        setProfile(userProfile);
+        if (isMounted) setProfile(userProfile);
       } else {
-        setProfile(null);
+        if (isMounted) setProfile(null);
       }
     });
 
