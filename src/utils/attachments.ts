@@ -11,24 +11,22 @@ export interface AttachmentMetadata {
 }
 
 export async function saveAttachmentMetadata(metadata: AttachmentMetadata) {
-    const payload: any = {
-        owner_id: metadata.ownerId,
-        file_url: metadata.fileUrl,
-        file_type: metadata.fileType,
-        file_size: metadata.fileSize,
-        report_id: metadata.reportId || null,
-        note_id: metadata.noteId ? parseInt(metadata.noteId as any) : null,
-        chat_id: metadata.chatId || null,
-    };
-
     const { data, error } = await supabase
         .from("attachments")
-        .insert(payload)
+        .insert({
+            owner_id: metadata.ownerId,
+            file_url: metadata.fileUrl,
+            file_type: metadata.fileType,
+            file_size: metadata.fileSize,
+            report_id: metadata.reportId || null,
+            note_id: metadata.noteId ? parseInt(metadata.noteId as any) : null,
+            chat_id: metadata.chatId || null,
+        })
         .select()
         .single();
 
     if (error) {
-        console.error("[Storage] Metadata error:", error);
+        console.error("Supabase metadata error:", error);
         return { data: null, error };
     }
 
