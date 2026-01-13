@@ -12,12 +12,15 @@ import {
   ShieldCheck,
   PlusCircle,
   Search,
-  MapPin
+  MapPin,
+  AlertTriangle
 } from "lucide-react";
+import { Link } from "react-router-dom";
 
 export const QuickActions = () => {
   const actions = [
-    { name: "Nowy Raport", icon: <FileText className="h-5 w-5" />, path: "/reports" },
+    { name: "Nowy Raport", icon: <FileText className="h-5 w-5" />, path: "/reports/new" },
+    { name: "Zgłoś Incydent", icon: <AlertTriangle className="h-5 w-5" />, path: "/incident-report" },
     { name: "Nowe Ogłoszenie", icon: <Bell className="h-5 w-5" />, path: "/announcements" },
     { name: "Dodaj Notatkę", icon: <ClipboardList className="h-5 w-5" />, path: "/notes" },
     { name: "Nowa Wiadomość", icon: <MessageSquare className="h-5 w-5" />, path: "/chat" },
@@ -32,16 +35,18 @@ export const QuickActions = () => {
         <CardTitle className="text-lapd-navy">Szybkie Akcje</CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-8 gap-3">
           {actions.map((action, index) => (
             <Button
               key={index}
               variant="outline"
               className="flex flex-col items-center justify-center h-24 p-2 border-lapd-gold hover:bg-lapd-gold hover:text-lapd-navy transition-colors"
-              onClick={() => console.log(`Navigate to ${action.path}`)}
+              asChild
             >
-              <div className="mb-2">{action.icon}</div>
-              <span className="text-xs text-center">{action.name}</span>
+              <Link to={action.path}>
+                <div className="mb-2">{action.icon}</div>
+                <span className="text-xs text-center">{action.name}</span>
+              </Link>
             </Button>
           ))}
         </div>

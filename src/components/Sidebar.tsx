@@ -3,9 +3,20 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Home, FileText, Bell, Users, MessageSquare, User, LogOut, ClipboardList, ShieldCheck } from "lucide-react";
+import { 
+  Home, 
+  FileText, 
+  Bell, 
+  Users, 
+  MessageSquare, 
+  User, 
+  LogOut, 
+  ClipboardList, 
+  ShieldCheck,
+  AlertTriangle
+} from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useAuth, UserRole } from "@/contexts/AuthContext"; // Import useAuth and UserRole
+import { useAuth, UserRole } from "@/contexts/AuthContext";
 
 interface SidebarProps {
   className?: string;
@@ -14,18 +25,24 @@ interface SidebarProps {
 const navItems = [
   { name: "Dashboard", icon: Home, path: "/" },
   { name: "Raporty", icon: FileText, path: "/reports" },
+  { name: "Zgłoś Incydent", icon: AlertTriangle, path: "/incident-report" },
   { name: "Dywizje", icon: Users, path: "/divisions" },
   { name: "Ogłoszenia", icon: Bell, path: "/announcements" },
   { name: "Notatki", icon: ClipboardList, path: "/notes" },
   { name: "Czat", icon: MessageSquare, path: "/chat" },
   { name: "Profil", icon: User, path: "/profile" },
-  { name: "Zarządzanie kontami", icon: ShieldCheck, path: "/account-management", requiredRoles: ["Lieutenant", "Captain", "High Command"] as UserRole[] }, // For LT, CPT, HC
+  { 
+    name: "Zarządzanie kontami", 
+    icon: ShieldCheck, 
+    path: "/account-management", 
+    requiredRoles: ["Lieutenant", "Captain", "High Command"] as UserRole[] 
+  }, // For LT, CPT, HC
 ];
 
 export const Sidebar = ({ className }: SidebarProps) => {
   const { profile, signOut } = useAuth();
   const userRole = profile?.role_name;
-
+  
   const filteredNavItems = navItems.filter(item => {
     if (item.requiredRoles && userRole && !item.requiredRoles.includes(userRole)) {
       return false;

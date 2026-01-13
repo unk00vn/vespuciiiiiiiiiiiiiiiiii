@@ -5,6 +5,9 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Bell, FileText, Users, AlertTriangle } from "lucide-react";
 import { OfficerStats } from "@/components/OfficerStats";
 import { QuickActions } from "@/components/QuickActions";
+import { RecentIncidents } from "@/components/RecentIncidents";
+import { IncidentStatsChart } from "@/components/IncidentStatsChart";
+import { ActivePatrols } from "@/components/ActivePatrols";
 
 const Dashboard = () => {
   return (
@@ -75,7 +78,13 @@ const Dashboard = () => {
         </div>
       </div>
       
-      {/* Placeholder for Announcements */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <RecentIncidents />
+        <ActivePatrols />
+      </div>
+      
+      <IncidentStatsChart />
+      
       <Card className="bg-lapd-white border-lapd-gold shadow-md">
         <CardHeader>
           <CardTitle className="text-lapd-navy">Ostatnie Ogłoszenia</CardTitle>

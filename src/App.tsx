@@ -15,6 +15,7 @@ import DivisionsPage from "./pages/DivisionsPage";
 import AnnouncementsPage from "./pages/AnnouncementsPage";
 import NotesPage from "./pages/NotesPage";
 import CreateReportPage from "./pages/CreateReportPage";
+import IncidentReportPage from "./pages/IncidentReportPage";
 import { AuthProvider, ProtectedRoute } from "./contexts/AuthContext";
 
 const queryClient = new QueryClient();
@@ -37,6 +38,7 @@ const App = () => (
                     <Route path="/profile" element={<ProfilePage />} />
                     <Route path="/reports" element={<ReportsPage />} />
                     <Route path="/reports/new" element={<CreateReportPage />} />
+                    <Route path="/incident-report" element={<IncidentReportPage />} />
                     <Route path="/divisions" element={<DivisionsPage />} />
                     <Route path="/announcements" element={<AnnouncementsPage />} />
                     <Route path="/notes" element={<NotesPage />} />
