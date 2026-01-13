@@ -9,6 +9,16 @@ import { User, Clock, Trash2, Loader2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const AnnouncementsPage = () => {
   const { profile } = useAuth();
@@ -16,6 +26,7 @@ const AnnouncementsPage = () => {
   const [loading, setLoading] = useState(true);
   const [isAdding, setIsAdding] = useState(false);
   const [newAnn, setNewAnn] = useState({ title: "", content: "" });
+  const [annToDelete, setAnnToDelete] = useState<string | null>(null);
 
   const canAdd = profile && profile.role_level >= 2; // Sergeant+
   const canDelete = profile && profile.role_level >= 3; // Lieutenant+
@@ -48,14 +59,15 @@ const AnnouncementsPage = () => {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("Czy na pewno chcesz usunąć to ogłoszenie?")) return;
-    const { error } = await supabase.from("announcements").delete().eq("id", id);
+  const handleDelete = async () => {
+    if (!annToDelete) return;
+    const { error } = await supabase.from("announcements").delete().eq("id", annToDelete);
     if (error) toast.error("Błąd podczas usuwania.");
     else {
       toast.success("Ogłoszenie usunięte.");
       fetchAnnouncements();
     }
+    setAnnToDelete(null);
   };
 
   return (
@@ -109,7 +121,7 @@ const AnnouncementsPage = () => {
                       variant="ghost" 
                       size="icon" 
                       className="text-red-400 hover:text-red-600 hover:bg-red-50"
-                      onClick={() => handleDelete(ann.id)}
+                      onClick={() => setAnnToDelete(ann.id)}
                     >
                       <Trash2 className="h-5 w-5" />
                     </Button>
@@ -121,8 +133,29 @@ const AnnouncementsPage = () => {
               </CardContent>
             </Card>
           ))}
+          {announcements.length === 0 && !loading && (
+            <div className="text-center py-20 text-gray-400">Brak aktualnych ogłoszeń.</div>
+          )}
         </div>
       )}
+
+      {/* Okno potwierdzenia usuwania */}
+      <AlertDialog open={!!annToDelete} onOpenChange={() => setAnnToDelete(null)}>
+        <AlertDialogContent className="border-2 border-red-500">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-red-600 font-black uppercase">Usunąć to ogłoszenie?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Ta czynność jest nieodwracalna. Ogłoszenie zniknie z tablicy wszystkich funkcjonariuszy.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="font-bold">ANULUJ</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-red-600 hover:bg-red-700 text-white font-bold">
+              USUŃ DEFINITYWNIE
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
