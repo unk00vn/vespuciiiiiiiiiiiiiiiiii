@@ -135,30 +135,41 @@ const NotesPage = () => {
     if (!profile) return;
     setLoading(true);
     
-    // Pobieramy notatki, w tym informacje o współpracownikach
-    const { data: myNotes } = await supabase
-      .from("notes")
-      .select("*, note_shares(profile_id)")
-      .eq("author_id", profile.id);
-      
-    const { data: shared } = await supabase
-      .from("note_shares")
-      .select("notes(*, note_shares(profile_id))")
-      .eq("profile_id", profile.id);
-    
-    // Supabase zwraca 'notes' jako obiekt, musimy go spłaszczyć
-    const sharedNotes = shared?.map(s => s.notes).filter(Boolean) as Note[] || [];
-    
-    // Łączymy i usuwamy duplikaty
-    const combinedMap = new Map<string, Note>();
-    [...(myNotes || []), ...sharedNotes].forEach(note => {
-        if (note) combinedMap.set(note.id, note);
-    });
-    
-    const combined = Array.from(combinedMap.values());
-    
-    setNotes(combined.sort((a,b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()));
-    setLoading(false);
+    try {
+        // Pobieramy notatki, w tym informacje o współpracownikach
+        const { data: myNotes, error: myNotesError } = await supabase
+          .from("notes")
+          .select("*, note_shares(profile_id)")
+          .eq("author_id", profile.id);
+          
+        if (myNotesError) throw myNotesError;
+          
+        const { data: shared, error: sharedError } = await supabase
+          .from("note_shares")
+          .select("notes(*, note_shares(profile_id))")
+          .eq("profile_id", profile.id);
+          
+        if (sharedError) throw sharedError;
+        
+        // Supabase zwraca 'notes' jako obiekt, musimy go spłaszczyć
+        const sharedNotes = shared?.map(s => s.notes).filter(Boolean) as Note[] || [];
+        
+        // Łączymy i usuwamy duplikaty
+        const combinedMap = new Map<string, Note>();
+        [...(myNotes || []), ...sharedNotes].forEach(note => {
+            if (note) combinedMap.set(note.id, note);
+        });
+        
+        const combined = Array.from(combinedMap.values());
+        
+        setNotes(combined.sort((a,b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()));
+        
+    } catch (error: any) {
+        toast.error("Błąd ładowania notatek. Sprawdź konfigurację RLS: " + error.message);
+        console.error("Error fetching notes:", error);
+    } finally {
+        setLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -180,12 +191,12 @@ const NotesPage = () => {
         toast.error("Błąd dodawania notatki: " + error.message);
     } else {
         toast.success("Notatka zapisana.");
+        setIsAdding(false);
+        setNewNote({ title: "", content: "" });
+        fetchNotes(); // Odśwież listę po zapisie
     }
     
     setSavingNew(false);
-    setIsAdding(false);
-    setNewNote({ title: "", content: "" });
-    fetchNotes();
   };
   
   const handleEdit = (note: Note) => {
@@ -194,7 +205,7 @@ const NotesPage = () => {
   
   const handleSaveEdit = async () => {
       if (!editingNote) return;
-      setSavingNew(true); // Używamy tego samego stanu dla oszczędności
+      setSavingNew(true); 
       
       const { error } = await supabase
         .from("notes")
