@@ -66,10 +66,10 @@ export const ActivePatrols = () => {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case "active": return "bg-green-100 text-green-800";
-      case "on-call": return "bg-blue-100 text-blue-800";
-      case "break": return "bg-yellow-100 text-yellow-800";
-      default: return "bg-gray-100 text-gray-800";
+      case "active": return "bg-green-500/20 text-green-400";
+      case "on-call": return "bg-blue-500/20 text-blue-400";
+      case "break": return "bg-yellow-500/20 text-yellow-400";
+      default: return "bg-gray-500/20 text-gray-400";
     }
   };
 
@@ -83,21 +83,21 @@ export const ActivePatrols = () => {
   };
 
   return (
-    <Card className="bg-lapd-white border-lapd-gold shadow-md">
+    <Card className="bg-white/5 border-lapd-gold shadow-md text-white">
       <CardHeader>
-        <CardTitle className="text-lapd-navy flex items-center">
-          <Radio className="h-5 w-5 mr-2" />
+        <CardTitle className="text-white flex items-center">
+          <Radio className="h-5 w-5 mr-2 text-lapd-gold" />
           Aktywne Patrole
         </CardTitle>
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
           {patrols.map((patrol) => (
-            <div key={patrol.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+            <div key={patrol.id} className="border border-white/10 rounded-lg p-4 hover:bg-white/[0.05] transition-colors">
               <div className="flex justify-between items-start">
                 <div>
-                  <h3 className="font-semibold text-lapd-navy">{patrol.unit}</h3>
-                  <div className="flex items-center text-sm text-gray-600 mt-1">
+                  <h3 className="font-semibold text-white">{patrol.unit}</h3>
+                  <div className="flex items-center text-sm text-slate-400 mt-1">
                     <Users className="h-4 w-4 mr-1" />
                     <span>{patrol.officers.join(", ")}</span>
                   </div>
@@ -107,17 +107,17 @@ export const ActivePatrols = () => {
                 </Badge>
               </div>
               
-              <div className="mt-3 flex items-center text-sm text-gray-600">
+              <div className="mt-3 flex items-center text-sm text-slate-400">
                 <MapPin className="h-4 w-4 mr-1" />
                 <span>{patrol.location}</span>
               </div>
               
               <div className="mt-2 flex justify-between items-center">
-                <div className="flex items-center text-sm text-gray-600">
+                <div className="flex items-center text-sm text-slate-400">
                   <Clock className="h-4 w-4 mr-1" />
                   <span>Start: {patrol.startTime}</span>
                 </div>
-                <span className="text-xs text-gray-500">Ostatnia aktualizacja: {patrol.lastUpdate}</span>
+                <span className="text-xs text-slate-500">Ostatnia aktualizacja: {patrol.lastUpdate}</span>
               </div>
             </div>
           ))}

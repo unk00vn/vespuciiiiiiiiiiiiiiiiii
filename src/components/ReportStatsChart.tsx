@@ -85,10 +85,10 @@ export const ReportStatsChart = ({ profileId }: { profileId: string }) => {
   }, [profileId]);
 
   return (
-    <Card className="bg-lapd-white border-lapd-gold shadow-md">
+    <Card className="bg-white/5 border-lapd-gold shadow-md text-white">
       <CardHeader>
-        <CardTitle className="text-lapd-navy flex items-center">
-          <TrendingUp className="h-5 w-5 mr-2" />
+        <CardTitle className="text-white flex items-center">
+          <TrendingUp className="h-5 w-5 mr-2 text-lapd-gold" />
           Statystyki Raportów (Ostatnie 30 dni)
         </CardTitle>
       </CardHeader>
@@ -104,9 +104,9 @@ export const ReportStatsChart = ({ profileId }: { profileId: string }) => {
                 data={data}
                 margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
               >
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="date" tickFormatter={(tick) => tick.split('/')[0]} />
-                <YAxis allowDecimals={false} />
+                <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
+                <XAxis dataKey="date" tickFormatter={(tick) => tick.split('/')[0]} stroke="#94a3b8" />
+                <YAxis allowDecimals={false} stroke="#94a3b8" />
                 <Tooltip 
                   contentStyle={{ 
                     backgroundColor: '#0A1A2F', 

@@ -57,37 +57,37 @@ export const RecentIncidents = () => {
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
-      case "low": return "bg-green-100 text-green-800";
-      case "medium": return "bg-yellow-100 text-yellow-800";
-      case "high": return "bg-orange-100 text-orange-800";
-      case "critical": return "bg-red-100 text-red-800";
-      default: return "bg-gray-100 text-gray-800";
+      case "low": return "bg-green-500/20 text-green-400";
+      case "medium": return "bg-yellow-500/20 text-yellow-400";
+      case "high": return "bg-orange-500/20 text-orange-400";
+      case "critical": return "bg-red-500/20 text-red-400";
+      default: return "bg-gray-500/20 text-gray-400";
     }
   };
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case "active": return "bg-blue-100 text-blue-800";
-      case "resolved": return "bg-green-100 text-green-800";
-      case "pending": return "bg-yellow-100 text-yellow-800";
-      default: return "bg-gray-100 text-gray-800";
+      case "active": return "bg-blue-500/20 text-blue-400";
+      case "resolved": return "bg-green-500/20 text-green-400";
+      case "pending": return "bg-yellow-500/20 text-yellow-400";
+      default: return "bg-gray-500/20 text-gray-400";
     }
   };
 
   return (
-    <Card className="bg-lapd-white border-lapd-gold shadow-md">
+    <Card className="bg-white/5 border-lapd-gold shadow-md text-white">
       <CardHeader>
-        <CardTitle className="text-lapd-navy flex items-center">
-          <AlertTriangle className="h-5 w-5 mr-2" />
+        <CardTitle className="text-white flex items-center">
+          <AlertTriangle className="h-5 w-5 mr-2 text-lapd-gold" />
           Ostatnie Incydenty
         </CardTitle>
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
           {incidents.map((incident) => (
-            <div key={incident.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+            <div key={incident.id} className="border border-white/10 rounded-lg p-4 hover:bg-white/[0.05] transition-colors">
               <div className="flex justify-between items-start">
-                <h3 className="font-semibold text-lapd-navy">{incident.title}</h3>
+                <h3 className="font-semibold text-white">{incident.title}</h3>
                 <Badge className={getPriorityColor(incident.priority)}>
                   {incident.priority === "critical" && "KRYTYCZNY"}
                   {incident.priority === "high" && "WYSOKI"}
@@ -96,12 +96,12 @@ export const RecentIncidents = () => {
                 </Badge>
               </div>
               
-              <div className="mt-2 flex items-center text-sm text-gray-600">
+              <div className="mt-2 flex items-center text-sm text-slate-400">
                 <MapPin className="h-4 w-4 mr-1" />
                 <span>{incident.location}</span>
               </div>
               
-              <div className="mt-2 flex items-center text-sm text-gray-600">
+              <div className="mt-2 flex items-center text-sm text-slate-400">
                 <Clock className="h-4 w-4 mr-1" />
                 <span>{incident.time}</span>
               </div>
@@ -112,7 +112,7 @@ export const RecentIncidents = () => {
                   {incident.status === "resolved" && "ROZWIĄZANY"}
                   {incident.status === "pending" && "OCZEKUJĄCY"}
                 </Badge>
-                <span className="text-sm text-gray-600">Przypisany: {incident.officer}</span>
+                <span className="text-sm text-slate-400">Przypisany: {incident.officer}</span>
               </div>
             </div>
           ))}
