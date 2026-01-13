@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/componen
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { PlusCircle, Trash2, Users, Loader2, UserPlus, X } from "lucide-react";
+import { PlusCircle, Trash2, Users, Loader2, UserPlus, X, Edit } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
@@ -21,6 +21,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
 
 interface Note {
   id: string;
@@ -44,6 +45,7 @@ const CollaboratorManager = ({ note, officers, onClose, onUpdate }: { note: Note
   const [saving, setSaving] = useState(false);
   const { profile } = useAuth();
 
+  // Filtrujemy, aby nie dodawać siebie ani autora notatki (jeśli autor jest inny niż ja)
   const availableOfficers = officers.filter(o => o.id !== profile?.id && o.id !== note.author_id);
 
   const handleToggleCollaborator = (officerId: string) => {
@@ -123,10 +125,11 @@ const NotesPage = () => {
   const [allOfficers, setAllOfficers] = useState<Officer[]>([]);
   const [isAdding, setIsAdding] = useState(false);
   const [editingNote, setEditingNote] = useState<Note | null>(null);
-  const [sharingNote, setSharingNote] = useState<Note | null>(null); // Dodanie stanu sharingNote
+  const [sharingNote, setSharingNote] = useState<Note | null>(null);
   const [deletingNoteId, setDeletingNoteId] = useState<string | null>(null);
   const [newNote, setNewNote] = useState({ title: "", content: "" });
   const [loading, setLoading] = useState(true);
+  const [savingNew, setSavingNew] = useState(false);
 
   const fetchNotes = async () => {
     if (!profile) return;
@@ -143,9 +146,10 @@ const NotesPage = () => {
       .select("notes(*, note_shares(profile_id))")
       .eq("profile_id", profile.id);
     
+    // Supabase zwraca 'notes' jako obiekt, musimy go spłaszczyć
     const sharedNotes = shared?.map(s => s.notes).filter(Boolean) as Note[] || [];
     
-    // Łączymy i usuwamy duplikaty (jeśli notatka jest moja i udostępniona)
+    // Łączymy i usuwamy duplikaty
     const combinedMap = new Map<string, Note>();
     [...(myNotes || []), ...sharedNotes].forEach(note => {
         if (note) combinedMap.set(note.id, note);
@@ -164,12 +168,21 @@ const NotesPage = () => {
 
   const handleAdd = async () => {
     if (!newNote.title.trim() || !newNote.content.trim()) return;
-    const { error } = await supabase.from("notes").insert({ author_id: profile?.id, title: newNote.title, content: newNote.content });
+    setSavingNew(true);
+    
+    const { error } = await supabase.from("notes").insert({ 
+        author_id: profile?.id, 
+        title: newNote.title, 
+        content: newNote.content 
+    });
+    
     if (error) {
         toast.error("Błąd dodawania notatki: " + error.message);
     } else {
         toast.success("Notatka zapisana.");
     }
+    
+    setSavingNew(false);
     setIsAdding(false);
     setNewNote({ title: "", content: "" });
     fetchNotes();
@@ -181,6 +194,8 @@ const NotesPage = () => {
   
   const handleSaveEdit = async () => {
       if (!editingNote) return;
+      setSavingNew(true); // Używamy tego samego stanu dla oszczędności
+      
       const { error } = await supabase
         .from("notes")
         .update({ title: editingNote.title, content: editingNote.content })
@@ -193,17 +208,22 @@ const NotesPage = () => {
           setEditingNote(null);
           fetchNotes();
       }
+      setSavingNew(false);
   };
 
   const handleDelete = async () => {
     if (!deletingNoteId) return;
+    setLoading(true);
+    
     const { error } = await supabase.from("notes").delete().eq("id", deletingNoteId);
+    
     if (error) toast.error("Błąd podczas usuwania: " + error.message);
     else {
       toast.success("Notatka usunięta.");
       fetchNotes();
     }
     setDeletingNoteId(null);
+    setLoading(false);
   };
   
   const isAuthor = (note: Note) => note.author_id === profile?.id;
@@ -222,9 +242,28 @@ const NotesPage = () => {
       {isAdding && (
         <Card className="border-lapd-gold shadow-lg">
           <CardContent className="p-4 space-y-4">
-            <Input placeholder="Tytuł notatki" value={newNote.title} onChange={e => setNewNote({...newNote, title: e.target.value})} />
-            <Textarea placeholder="Treść..." value={newNote.content} onChange={e => setNewNote({...newNote, content: e.target.value})} />
-            <Button onClick={handleAdd} className="w-full bg-lapd-navy text-lapd-gold font-bold">ZAPISZ NOTATKĘ</Button>
+            <Input 
+                placeholder="Tytuł notatki" 
+                value={newNote.title} 
+                onChange={e => setNewNote({...newNote, title: e.target.value})} 
+                className="border-lapd-gold"
+                disabled={savingNew}
+            />
+            <Textarea 
+                placeholder="Treść..." 
+                value={newNote.content} 
+                onChange={e => setNewNote({...newNote, content: e.target.value})} 
+                className="border-lapd-gold min-h-[150px]"
+                disabled={savingNew}
+            />
+            <Button 
+                onClick={handleAdd} 
+                className="w-full bg-lapd-navy text-lapd-gold font-bold"
+                disabled={savingNew || !newNote.title.trim() || !newNote.content.trim()}
+            >
+                {savingNew ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : <PlusCircle className="h-4 w-4 mr-2" />}
+                ZAPISZ NOTATKĘ
+            </Button>
           </CardContent>
         </Card>
       )}
@@ -254,7 +293,7 @@ const NotesPage = () => {
                     )}
                     {canEdit(n) && (
                         <Button variant="ghost" size="sm" onClick={() => handleEdit(n)} className="text-green-500 hover:text-green-700 hover:bg-green-50">
-                            EDYTUJ
+                            <Edit className="h-4 w-4" />
                         </Button>
                     )}
                     {isAuthor(n) && (
@@ -273,7 +312,7 @@ const NotesPage = () => {
       )}
 
       {/* Okno edycji notatki */}
-      <Dialog open={!!editingNote} onOpenChange={() => setEditingNote(null)}>
+      <Dialog open={!!editingNote} onOpenChange={() => !savingNew && setEditingNote(null)}>
         <DialogContent className="border-lapd-gold">
           <DialogHeader><DialogTitle className="text-lapd-navy font-black uppercase">Edytuj Notatkę</DialogTitle></DialogHeader>
           {editingNote && (
@@ -283,16 +322,24 @@ const NotesPage = () => {
                 value={editingNote.title} 
                 onChange={e => setEditingNote({...editingNote, title: e.target.value})} 
                 className="border-lapd-gold"
+                disabled={savingNew}
               />
               <Textarea 
                 placeholder="Treść..." 
                 value={editingNote.content} 
                 onChange={e => setEditingNote({...editingNote, content: e.target.value})} 
                 className="border-lapd-gold min-h-[200px]"
+                disabled={savingNew}
               />
               <DialogFooter>
-                <Button variant="outline" onClick={() => setEditingNote(null)}>Anuluj</Button>
-                <Button className="bg-lapd-navy text-lapd-gold font-bold" onClick={handleSaveEdit}>ZAPISZ ZMIANY</Button>
+                <Button variant="outline" onClick={() => setEditingNote(null)} disabled={savingNew}>Anuluj</Button>
+                <Button 
+                    className="bg-lapd-navy text-lapd-gold font-bold" 
+                    onClick={handleSaveEdit}
+                    disabled={savingNew || !editingNote.title.trim() || !editingNote.content.trim()}
+                >
+                    {savingNew ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : "ZAPISZ ZMIANY"}
+                </Button>
               </DialogFooter>
             </>
           )}
