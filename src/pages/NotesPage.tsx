@@ -35,14 +35,21 @@ const NotesPage = () => {
     setLoading(true);
     try {
       const { data: myNotes } = await supabase.from("notes").select(`*, attachments(*)`).eq("author_id", profile.id).order("created_at", { ascending: false });
-      const { data: shared } = await supabase.from("note_shares").select(`note_id, can_edit, notes(*, attachments(*))`).eq("profile_id", profile.id);
+      
+      // Bezpieczne pobieranie udostępnionych notatek
+      const { data: shared, error: sharedError } = await supabase.from("note_shares").select(`note_id, can_edit, notes(*, attachments(*))`).eq("profile_id", profile.id);
+      
+      if (sharedError) {
+        console.warn("Note shares table might be missing:", sharedError.message);
+      }
+
       const { data: officers } = await supabase.from("profiles").select("*").eq("status", "approved");
 
       setNotes(myNotes || []);
       setSharedNotes(shared?.map(s => s.notes ? { ...s.notes, can_edit: s.can_edit, is_shared: true } : null).filter(Boolean) || []);
       setAllOfficers(officers?.filter(o => o.id !== profile.id) || []);
     } catch (e) {
-      toast.error("Błąd ładowania danych.");
+      console.error("Fetch error:", e);
     } finally {
       setLoading(false);
     }
@@ -55,7 +62,7 @@ const NotesPage = () => {
     setSaving(true);
     const { data: note, error } = await supabase.from("notes").insert({ author_id: profile?.id, title: newNote.title, content: newNote.content }).select().single();
     if (error) {
-        toast.error("Błąd zapisu.");
+        toast.error("Błąd zapisu: " + error.message);
     } else {
         if (tempAttachments.length > 0) await supabase.from("attachments").update({ note_id: note.id }).in('id', tempAttachments.map(a => a.id));
         toast.success("Notatka utworzona.");
@@ -71,7 +78,7 @@ const NotesPage = () => {
     if (!editingNote) return;
     setSaving(true);
     const { error } = await supabase.from("notes").update({ title: editingNote.title, content: editingNote.content }).eq("id", editingNote.id);
-    if (error) toast.error("Błąd aktualizacji.");
+    if (error) toast.error("Błąd aktualizacji: " + error.message);
     else {
         toast.success("Zapisano zmiany.");
         setEditingNote(null);
@@ -83,7 +90,7 @@ const NotesPage = () => {
   const handleDelete = async (noteId: number) => {
     if (!confirm("Czy na pewno chcesz usunąć tę notatkę?")) return;
     const { error } = await supabase.from("notes").delete().eq("id", noteId);
-    if (error) toast.error("Błąd usuwania.");
+    if (error) toast.error("Błąd usuwania: " + error.message);
     else {
         toast.success("Notatka usunięta.");
         fetchData();
@@ -99,8 +106,8 @@ const NotesPage = () => {
     }, { onConflict: 'note_id,profile_id' });
 
     if (error) {
-        console.error(error);
-        toast.error("Błąd udostępniania. Upewnij się, że tabela note_shares istnieje.");
+        console.error("Supabase Share Error:", error);
+        toast.error(`Błąd bazy: ${error.message}. Upewnij się, że tabela note_shares istnieje w SQL Editor.`);
     } else {
         toast.success(`Uprawnienia (${canEdit ? 'Edycja' : 'Podgląd'}) nadane.`);
     }
@@ -128,47 +135,51 @@ const NotesPage = () => {
         </Card>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {[...notes, ...sharedNotes].map((n) => {
-            const isOwner = n.author_id === profile?.id;
-            const canEdit = isOwner || n.can_edit;
+      {loading ? (
+          <div className="flex justify-center py-20"><Loader2 className="animate-spin h-10 w-10 text-lapd-gold" /></div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {[...notes, ...sharedNotes].map((n) => {
+                const isOwner = n.author_id === profile?.id;
+                const canEdit = isOwner || n.can_edit;
 
-            return (
-                <Card key={n.id} className={`border flex flex-col group transition-all hover:scale-[1.01] ${isOwner ? 'border-lapd-gold/30 bg-white/5' : 'border-blue-500/30 bg-blue-500/5'}`}>
-                    <CardHeader className="bg-black/20 p-4 border-b border-white/5 flex flex-row items-center justify-between">
-                        <CardTitle className="text-xs font-black text-white uppercase truncate flex-1 mr-2">{n.title}</CardTitle>
-                        <div className="flex gap-1">
-                            {isOwner && (
-                                <>
-                                    <Button variant="ghost" size="icon" className="h-7 w-7 text-lapd-gold hover:bg-lapd-gold/20" onClick={() => setSharingNote(n)}>
-                                        <Share2 className="h-4 w-4" />
+                return (
+                    <Card key={n.id} className={`border flex flex-col group transition-all hover:scale-[1.01] ${isOwner ? 'border-lapd-gold/30 bg-white/5' : 'border-blue-500/30 bg-blue-500/5'}`}>
+                        <CardHeader className="bg-black/20 p-4 border-b border-white/5 flex flex-row items-center justify-between">
+                            <CardTitle className="text-xs font-black text-white uppercase truncate flex-1 mr-2">{n.title}</CardTitle>
+                            <div className="flex gap-1">
+                                {isOwner && (
+                                    <>
+                                        <Button variant="ghost" size="icon" className="h-7 w-7 text-lapd-gold hover:bg-lapd-gold/20" onClick={() => setSharingNote(n)}>
+                                            <Share2 className="h-4 w-4" />
+                                        </Button>
+                                        <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500 hover:bg-red-500/20" onClick={() => handleDelete(n.id)}>
+                                            <Trash2 className="h-4 w-4" />
+                                        </Button>
+                                    </>
+                                )}
+                                {canEdit && (
+                                    <Button variant="ghost" size="icon" className="h-7 w-7 text-white hover:bg-white/20" onClick={() => setEditingNote(n)}>
+                                        <Edit className="h-4 w-4" />
                                     </Button>
-                                    <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500 hover:bg-red-500/20" onClick={() => handleDelete(n.id)}>
-                                        <Trash2 className="h-4 w-4" />
-                                    </Button>
-                                </>
-                            )}
-                            {canEdit && (
-                                <Button variant="ghost" size="icon" className="h-7 w-7 text-white hover:bg-white/20" onClick={() => setEditingNote(n)}>
-                                    <Edit className="h-4 w-4" />
-                                </Button>
-                            )}
-                        </div>
-                    </CardHeader>
-                    <CardContent className="p-4 flex-1">
-                        <p className="text-xs text-slate-300 italic whitespace-pre-wrap line-clamp-6">{n.content}</p>
-                        {n.attachments?.length > 0 && <div className="mt-4"><AttachmentList attachments={n.attachments} /></div>}
-                    </CardContent>
-                    <CardFooter className="bg-black/20 p-3 flex justify-between items-center text-[10px] font-bold">
-                        <Badge className={isOwner ? "bg-lapd-gold text-black" : "bg-blue-600 text-white"}>
-                            {isOwner ? "WŁASNA" : "UDOSTĘPNIONA"}
-                        </Badge>
-                        <span className="text-slate-500 font-mono">{new Date(n.created_at).toLocaleDateString()}</span>
-                    </CardFooter>
-                </Card>
-            );
-        })}
-      </div>
+                                )}
+                            </div>
+                        </CardHeader>
+                        <CardContent className="p-4 flex-1">
+                            <p className="text-xs text-slate-300 italic whitespace-pre-wrap line-clamp-6">{n.content}</p>
+                            {n.attachments?.length > 0 && <div className="mt-4"><AttachmentList attachments={n.attachments} /></div>}
+                        </CardContent>
+                        <CardFooter className="bg-black/20 p-3 flex justify-between items-center text-[10px] font-bold">
+                            <Badge className={isOwner ? "bg-lapd-gold text-black" : "bg-blue-600 text-white"}>
+                                {isOwner ? "WŁASNA" : "UDOSTĘPNIONA"}
+                            </Badge>
+                            <span className="text-slate-500 font-mono">{new Date(n.created_at).toLocaleDateString()}</span>
+                        </CardFooter>
+                    </Card>
+                );
+            })}
+        </div>
+      )}
 
       <Dialog open={!!sharingNote} onOpenChange={() => setSharingNote(null)}>
         <DialogContent className="bg-[#0A1A2F] border-2 border-lapd-gold text-white max-w-md">
