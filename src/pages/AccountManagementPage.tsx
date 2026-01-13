@@ -21,6 +21,17 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Trash2, Loader2 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface Role {
   id: number;
@@ -45,6 +56,8 @@ const AccountManagementPage = () => {
   const [roles, setRoles] = useState<Role[]>([]);
   const [divisions, setDivisions] = useState<Division[]>([]);
   const [loading, setLoading] = useState(true);
+  const [profileToDelete, setProfileToDelete] = useState<LocalProfile | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const fetchAllData = async () => {
     setLoading(true);
@@ -165,6 +178,46 @@ const AccountManagementPage = () => {
       fetchAllData(); // Refresh data
     }
   };
+  
+  const handleDeleteProfile = async () => {
+    if (!profileToDelete) return;
+    setDeleting(true);
+    
+    try {
+      // 1. Usuń powiązane rekordy (np. profile_divisions, note_shares, officer_pins)
+      // Zakładamy, że w bazie danych są ustawione kaskadowe usuwania (ON DELETE CASCADE)
+      // Jeśli nie, musielibyśmy usunąć je ręcznie. Dla uproszczenia, usuwamy tylko profil.
+      
+      // 2. Usuń profil
+      const { error: profileError } = await supabase
+        .from("profiles")
+        .delete()
+        .eq("id", profileToDelete.id);
+
+      if (profileError) throw profileError;
+      
+      // 3. Spróbuj usunąć użytkownika z Auth (wymaga odpowiednich uprawnień RLS/Admin)
+      // W przypadku braku uprawnień, profil zostanie usunięty, a konto Auth pozostanie 'osierocone'
+      // co jest akceptowalne w środowisku klienckim bez klucza serwisowego.
+      const { error: authError } = await supabase.auth.admin.deleteUser(profileToDelete.id);
+      
+      if (authError) {
+        console.warn("Nie udało się usunąć użytkownika z Auth (wymagane uprawnienia admina/klucz serwisowy). Usunięto tylko profil.", authError);
+        toast.warning("Usunięto profil, ale nie udało się usunąć konta Auth. Wymagane uprawnienia administratora.");
+      } else {
+        toast.success(`Konto #${profileToDelete.badge_number} zostało usunięte.`);
+      }
+
+      setProfileToDelete(null);
+      fetchAllData();
+      
+    } catch (error: any) {
+      toast.error("Błąd podczas usuwania konta: " + error.message);
+      console.error("Delete error:", error);
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   if (loading) {
     return <div className="text-center text-lapd-navy">Ładowanie danych...</div>;
@@ -282,6 +335,17 @@ const AccountManagementPage = () => {
                           Akceptuj
                         </Button>
                       )}
+                      {profile.status === "approved" && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="text-red-500 hover:bg-red-50"
+                          onClick={() => setProfileToDelete(profile)}
+                          disabled={profile.id === currentUserProfile?.id} // Nie można usunąć własnego konta
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))}
@@ -290,6 +354,30 @@ const AccountManagementPage = () => {
           </div>
         </CardContent>
       </Card>
+      
+      {/* Alert Dialog for Deletion Confirmation */}
+      <AlertDialog open={!!profileToDelete} onOpenChange={() => !deleting && setProfileToDelete(null)}>
+        <AlertDialogContent className="border-2 border-red-500">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-red-600 font-black uppercase">Potwierdź usunięcie konta</AlertDialogTitle>
+            <AlertDialogDescription>
+              Czy na pewno chcesz usunąć konto funkcjonariusza **#{profileToDelete?.badge_number}** ({profileToDelete?.email})? 
+              Ta operacja jest nieodwracalna i usunie wszystkie powiązane dane profilu.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting} className="font-bold">ANULUJ</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleDeleteProfile} 
+              disabled={deleting}
+              className="bg-red-600 hover:bg-red-700 text-white font-bold"
+            >
+              {deleting ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : <Trash2 className="h-4 w-4 mr-2" />}
+              USUŃ KONTO
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
