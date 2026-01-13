@@ -5,11 +5,11 @@ import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/componen
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { PlusCircle, Trash2, Share2, Loader2 } from "lucide-react";
+import { PlusCircle, Trash2, Users, Loader2, UserPlus, X } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -20,13 +20,109 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Badge } from "@/components/ui/badge";
+
+interface Note {
+  id: string;
+  title: string;
+  content: string;
+  author_id: string;
+  created_at: string;
+  note_shares?: { profile_id: string }[];
+}
+
+interface Officer {
+  id: string;
+  first_name: string;
+  last_name: string;
+  badge_number: string;
+}
+
+// Komponent do zarządzania współpracownikami
+const CollaboratorManager = ({ note, officers, onClose, onUpdate }: { note: Note, officers: Officer[], onClose: () => void, onUpdate: () => void }) => {
+  const [currentCollaborators, setCurrentCollaborators] = useState<string[]>(note.note_shares?.map(s => s.profile_id) || []);
+  const [saving, setSaving] = useState(false);
+  const { profile } = useAuth();
+
+  const availableOfficers = officers.filter(o => o.id !== profile?.id && o.id !== note.author_id);
+
+  const handleToggleCollaborator = (officerId: string) => {
+    setCurrentCollaborators(prev => 
+      prev.includes(officerId) ? prev.filter(id => id !== officerId) : [...prev, officerId]
+    );
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      // 1. Usuń wszystkie istniejące udostępnienia dla tej notatki
+      const { error: deleteError } = await supabase
+        .from("note_shares")
+        .delete()
+        .eq("note_id", note.id);
+
+      if (deleteError) throw deleteError;
+
+      // 2. Wstaw nowe udostępnienia
+      if (currentCollaborators.length > 0) {
+        const inserts = currentCollaborators.map(profileId => ({
+          note_id: note.id,
+          profile_id: profileId
+        }));
+        const { error: insertError } = await supabase.from("note_shares").insert(inserts);
+        if (insertError) throw insertError;
+      }
+
+      toast.success("Współpracownicy zaktualizowani.");
+      onUpdate();
+      onClose();
+    } catch (error: any) {
+      toast.error("Błąd zapisu współpracowników: " + error.message);
+      console.error(error);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Dialog open={true} onOpenChange={onClose}>
+      <DialogContent className="border-lapd-gold">
+        <DialogHeader><DialogTitle className="text-lapd-navy font-black uppercase">Zarządzaj Współpracownikami</DialogTitle></DialogHeader>
+        <div className="max-h-60 overflow-y-auto space-y-2">
+          {availableOfficers.map(o => (
+            <div key={o.id} className="flex justify-between items-center p-3 border rounded-lg hover:bg-gray-50">
+              <span className="text-sm font-bold">#{o.badge_number} {o.first_name} {o.last_name}</span>
+              <Button 
+                size="sm" 
+                variant={currentCollaborators.includes(o.id) ? "default" : "outline"} 
+                className={currentCollaborators.includes(o.id) ? "bg-red-500 hover:bg-red-600 text-white" : "border-lapd-gold text-lapd-navy"}
+                onClick={() => handleToggleCollaborator(o.id)}
+              >
+                {currentCollaborators.includes(o.id) ? <X className="h-4 w-4 mr-1" /> : <UserPlus className="h-4 w-4 mr-1" />}
+                {currentCollaborators.includes(o.id) ? "USUŃ" : "DODAJ"}
+              </Button>
+            </div>
+          ))}
+          {availableOfficers.length === 0 && <p className="text-center text-gray-400 py-4">Brak innych funkcjonariuszy do dodania.</p>}
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose} disabled={saving}>Anuluj</Button>
+          <Button className="bg-lapd-navy text-lapd-gold font-bold" onClick={handleSave} disabled={saving}>
+            {saving ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : <Users className="h-4 w-4 mr-2" />}
+            ZAPISZ WSPÓŁPRACOWNIKÓW
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+};
 
 const NotesPage = () => {
   const { profile } = useAuth();
-  const [notes, setNotes] = useState<any[]>([]);
-  const [allOfficers, setAllOfficers] = useState<any[]>([]);
+  const [notes, setNotes] = useState<Note[]>([]);
+  const [allOfficers, setAllOfficers] = useState<Officer[]>([]);
   const [isAdding, setIsAdding] = useState(false);
-  const [sharingNote, setSharingNote] = useState<any>(null);
+  const [editingNote, setEditingNote] = useState<Note | null>(null);
   const [deletingNoteId, setDeletingNoteId] = useState<string | null>(null);
   const [newNote, setNewNote] = useState({ title: "", content: "" });
   const [loading, setLoading] = useState(true);
@@ -34,10 +130,28 @@ const NotesPage = () => {
   const fetchNotes = async () => {
     if (!profile) return;
     setLoading(true);
-    const { data: myNotes } = await supabase.from("notes").select("*").eq("author_id", profile.id);
-    const { data: shared } = await supabase.from("note_shares").select("notes(*)").eq("profile_id", profile.id);
     
-    const combined = [...(myNotes || []), ...(shared?.map(s => s.notes) || [])];
+    // Pobieramy notatki, w tym informacje o współpracownikach
+    const { data: myNotes } = await supabase
+      .from("notes")
+      .select("*, note_shares(profile_id)")
+      .eq("author_id", profile.id);
+      
+    const { data: shared } = await supabase
+      .from("note_shares")
+      .select("notes(*, note_shares(profile_id))")
+      .eq("profile_id", profile.id);
+    
+    const sharedNotes = shared?.map(s => s.notes).filter(Boolean) as Note[] || [];
+    
+    // Łączymy i usuwamy duplikaty (jeśli notatka jest moja i udostępniona)
+    const combinedMap = new Map<string, Note>();
+    [...(myNotes || []), ...sharedNotes].forEach(note => {
+        if (note) combinedMap.set(note.id, note);
+    });
+    
+    const combined = Array.from(combinedMap.values());
+    
     setNotes(combined.sort((a,b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()));
     setLoading(false);
   };
@@ -49,37 +163,51 @@ const NotesPage = () => {
 
   const handleAdd = async () => {
     if (!newNote.title.trim() || !newNote.content.trim()) return;
-    await supabase.from("notes").insert({ author_id: profile?.id, title: newNote.title, content: newNote.content });
+    const { error } = await supabase.from("notes").insert({ author_id: profile?.id, title: newNote.title, content: newNote.content });
+    if (error) {
+        toast.error("Błąd dodawania notatki: " + error.message);
+    } else {
+        toast.success("Notatka zapisana.");
+    }
     setIsAdding(false);
     setNewNote({ title: "", content: "" });
     fetchNotes();
+  };
+  
+  const handleEdit = (note: Note) => {
+      setEditingNote(note);
+  };
+  
+  const handleSaveEdit = async () => {
+      if (!editingNote) return;
+      const { error } = await supabase
+        .from("notes")
+        .update({ title: editingNote.title, content: editingNote.content })
+        .eq("id", editingNote.id);
+        
+      if (error) {
+          toast.error("Błąd zapisu: " + error.message);
+      } else {
+          toast.success("Notatka zaktualizowana.");
+          setEditingNote(null);
+          fetchNotes();
+      }
   };
 
   const handleDelete = async () => {
     if (!deletingNoteId) return;
     const { error } = await supabase.from("notes").delete().eq("id", deletingNoteId);
-    if (error) toast.error("Błąd podczas usuwania.");
+    if (error) toast.error("Błąd podczas usuwania: " + error.message);
     else {
       toast.success("Notatka usunięta.");
       fetchNotes();
     }
     setDeletingNoteId(null);
   };
-
-  const handleShare = async (officerId: string) => {
-    const { error } = await supabase.from("note_shares").insert({ note_id: sharingNote.id, profile_id: officerId });
-    
-    if (error) {
-      // Sprawdzamy, czy błąd to naruszenie unikalności (kod 23505 w PostgreSQL)
-      if (error.code === '23505') {
-        toast.warning("Ta notatka jest już udostępniona temu funkcjonariuszowi.");
-      } else {
-        toast.error("Błąd udostępniania: " + error.message);
-      }
-    } else {
-      toast.success("Udostępniono pomyślnie.");
-    }
-  };
+  
+  const isAuthor = (note: Note) => note.author_id === profile?.id;
+  const isCollaborator = (note: Note) => note.note_shares?.some(s => s.profile_id === profile?.id);
+  const canEdit = (note: Note) => isAuthor(note) || isCollaborator(note);
 
   return (
     <div className="flex flex-col gap-6">
@@ -112,19 +240,28 @@ const NotesPage = () => {
               <CardContent className="text-xs text-gray-600 min-h-[100px] whitespace-pre-wrap">
                 {n.content}
               </CardContent>
-              <CardFooter className="flex justify-end gap-1 pt-2 border-t border-gray-100">
-                {n.author_id === profile?.id ? (
-                  <>
-                    <Button variant="ghost" size="sm" onClick={() => setSharingNote(n)} className="text-blue-500 hover:text-blue-700 hover:bg-blue-50">
-                      <Share2 className="h-4 w-4" />
-                    </Button>
-                    <Button variant="ghost" size="sm" onClick={() => setDeletingNoteId(n.id)} className="text-red-500 hover:text-red-700 hover:bg-red-50">
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </>
-                ) : (
-                  <span className="text-[10px] text-gray-400 italic">Udostępniona</span>
-                )}
+              <CardFooter className="flex justify-between items-center pt-2 border-t border-gray-100">
+                <div className="flex gap-1">
+                    {isAuthor(n) && <Badge variant="default" className="bg-lapd-navy text-lapd-gold text-[10px]">AUTOR</Badge>}
+                    {isCollaborator(n) && <Badge variant="outline" className="border-blue-500 text-blue-500 text-[10px]">WSPÓŁPRACA</Badge>}
+                </div>
+                <div className="flex gap-1">
+                    {isAuthor(n) && (
+                        <Button variant="ghost" size="sm" onClick={() => setSharingNote(n)} className="text-blue-500 hover:text-blue-700 hover:bg-blue-50">
+                            <Users className="h-4 w-4" />
+                        </Button>
+                    )}
+                    {canEdit(n) && (
+                        <Button variant="ghost" size="sm" onClick={() => handleEdit(n)} className="text-green-500 hover:text-green-700 hover:bg-green-50">
+                            EDYTUJ
+                        </Button>
+                    )}
+                    {isAuthor(n) && (
+                        <Button variant="ghost" size="sm" onClick={() => setDeletingNoteId(n.id)} className="text-red-500 hover:text-red-700 hover:bg-red-50">
+                            <Trash2 className="h-4 w-4" />
+                        </Button>
+                    )}
+                </div>
               </CardFooter>
             </Card>
           ))}
@@ -134,20 +271,42 @@ const NotesPage = () => {
         </div>
       )}
 
-      {/* Okno udostępniania */}
-      <Dialog open={!!sharingNote} onOpenChange={() => setSharingNote(null)}>
+      {/* Okno edycji notatki */}
+      <Dialog open={!!editingNote} onOpenChange={() => setEditingNote(null)}>
         <DialogContent className="border-lapd-gold">
-          <DialogHeader><DialogTitle className="text-lapd-navy font-black uppercase">Udostępnij notatkę</DialogTitle></DialogHeader>
-          <div className="max-h-60 overflow-y-auto space-y-2">
-            {allOfficers.filter(o => o.id !== profile?.id).map(o => (
-              <div key={o.id} className="flex justify-between items-center p-3 border rounded-lg hover:bg-gray-50">
-                <span className="text-sm font-bold">#{o.badge_number} {o.first_name} {o.last_name}</span>
-                <Button size="sm" variant="outline" className="border-lapd-gold text-lapd-navy" onClick={() => handleShare(o.id)}>Udostępnij</Button>
-              </div>
-            ))}
-          </div>
+          <DialogHeader><DialogTitle className="text-lapd-navy font-black uppercase">Edytuj Notatkę</DialogTitle></DialogHeader>
+          {editingNote && (
+            <>
+              <Input 
+                placeholder="Tytuł notatki" 
+                value={editingNote.title} 
+                onChange={e => setEditingNote({...editingNote, title: e.target.value})} 
+                className="border-lapd-gold"
+              />
+              <Textarea 
+                placeholder="Treść..." 
+                value={editingNote.content} 
+                onChange={e => setEditingNote({...editingNote, content: e.target.value})} 
+                className="border-lapd-gold min-h-[200px]"
+              />
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setEditingNote(null)}>Anuluj</Button>
+                <Button className="bg-lapd-navy text-lapd-gold font-bold" onClick={handleSaveEdit}>ZAPISZ ZMIANY</Button>
+              </DialogFooter>
+            </>
+          )}
         </DialogContent>
       </Dialog>
+
+      {/* Okno zarządzania współpracownikami */}
+      {sharingNote && (
+        <CollaboratorManager 
+          note={sharingNote} 
+          officers={allOfficers} 
+          onClose={() => setSharingNote(null)} 
+          onUpdate={fetchNotes} 
+        />
+      )}
 
       {/* Okno potwierdzenia usuwania */}
       <AlertDialog open={!!deletingNoteId} onOpenChange={() => setDeletingNoteId(null)}>
