@@ -69,7 +69,9 @@ const ReportsPage = () => {
                 </Badge>
               </TableCell>
               <TableCell className="text-right">
-                <Button variant="outline" size="sm" className="h-8 border-lapd-gold/30 text-lapd-gold hover:bg-lapd-gold hover:text-black font-bold text-[10px]">DETALE</Button>
+                <Button asChild variant="outline" size="sm" className="h-8 border-lapd-gold/30 text-lapd-gold hover:bg-lapd-gold hover:text-black font-bold text-[10px]">
+                  <Link to={`/reports/${report.id}`}>DETALE</Link>
+                </Button>
               </TableCell>
             </TableRow>
           ))}

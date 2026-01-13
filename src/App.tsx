@@ -11,6 +11,7 @@ import RegisterPage from "./pages/RegisterPage";
 import AccountManagementPage from "./pages/AccountManagementPage";
 import ProfilePage from "./pages/ProfilePage";
 import ReportsPage from "./pages/ReportsPage";
+import ReportDetailsPage from "./pages/ReportDetailsPage";
 import DivisionsPage from "./pages/DivisionsPage";
 import AnnouncementsPage from "./pages/AnnouncementsPage";
 import NotesPage from "./pages/NotesPage";
@@ -23,7 +24,6 @@ const queryClient = new QueryClient();
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
-      {/* Przeniesienie powiadomień do lewego dolnego rogu */}
       <Toaster />
       <Sonner position="bottom-left" />
       <BrowserRouter>
@@ -39,6 +39,7 @@ const App = () => (
                     <Route path="/profile" element={<ProfilePage />} />
                     <Route path="/reports" element={<ReportsPage />} />
                     <Route path="/reports/new" element={<CreateReportPage />} />
+                    <Route path="/reports/:id" element={<ReportDetailsPage />} />
                     <Route path="/divisions" element={<DivisionsPage />} />
                     <Route path="/announcements" element={<AnnouncementsPage />} />
                     <Route path="/notes" element={<NotesPage />} />
