@@ -1,59 +1,61 @@
--- 1. Czyścimy stare polityki i funkcje
-DROP POLICY IF EXISTS "notes_read_policy" ON notes;
-DROP POLICY IF EXISTS "notes_write_policy" ON notes;
-DROP POLICY IF EXISTS "shares_read_policy" ON note_shares;
-DROP POLICY IF EXISTS "shares_write_policy" ON note_shares;
+-- 1. SIŁOWE USUNIĘCIE WSZYSTKICH ISTNIEJĄCYCH POLITYK (Dla pewności)
+DO $$ 
+DECLARE 
+    pol record;
+BEGIN
+    FOR pol IN (SELECT policyname FROM pg_policies WHERE tablename = 'notes') LOOP
+        EXECUTE format('DROP POLICY IF EXISTS %I ON notes', pol.policyname);
+    END LOOP;
+    FOR pol IN (SELECT policyname FROM pg_policies WHERE tablename = 'note_shares') LOOP
+        EXECUTE format('DROP POLICY IF EXISTS %I ON note_shares', pol.policyname);
+    END LOOP;
+END $$;
 
-DROP FUNCTION IF EXISTS check_is_note_collaborator(uuid, uuid);
+-- 2. USUNIĘCIE STARYCH FUNKCJI
+DROP FUNCTION IF EXISTS check_is_note_collaborator(bigint, uuid);
+DROP FUNCTION IF EXISTS check_is_note_author(bigint, uuid);
 DROP FUNCTION IF EXISTS check_is_note_collaborator(integer, uuid);
-DROP FUNCTION IF EXISTS check_is_note_author(uuid, uuid);
 DROP FUNCTION IF EXISTS check_is_note_author(integer, uuid);
 
--- 2. Tworzymy funkcje z poprawnymi typami (BIGINT dla ID notatki, UUID dla profilu)
--- Używamy BIGINT, ponieważ Postgres traktuje auto-increment jako ten typ
-CREATE OR REPLACE FUNCTION check_is_note_collaborator(n_id BIGINT, p_id UUID)
-RETURNS BOOLEAN AS $$
+-- 3. JEDNA FUNKCJA BYPASSUJĄCA RLS (SECURITY DEFINER)
+-- Funkcja ta działa z uprawnieniami właściciela bazy, więc NIE odpala RLS przy sprawdzaniu
+CREATE OR REPLACE FUNCTION public.can_user_access_note(n_id bigint, u_id uuid)
+RETURNS boolean AS $$
 BEGIN
-  RETURN EXISTS (
-    SELECT 1 FROM note_shares
-    WHERE note_id = n_id AND profile_id = p_id
-  );
+  -- Czy użytkownik jest autorem?
+  IF EXISTS (SELECT 1 FROM public.notes WHERE id = n_id AND author_id = u_id) THEN
+    RETURN true;
+  END IF;
+  
+  -- Czy notatka jest mu udostępniona?
+  IF EXISTS (SELECT 1 FROM public.note_shares WHERE note_id = n_id AND profile_id = u_id) THEN
+    RETURN true;
+  END IF;
+
+  RETURN false;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
-CREATE OR REPLACE FUNCTION check_is_note_author(n_id BIGINT, p_id UUID)
-RETURNS BOOLEAN AS $$
-BEGIN
-  RETURN EXISTS (
-    SELECT 1 FROM notes
-    WHERE id = n_id AND author_id = p_id
-  );
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+-- 4. NAŁOŻENIE NOWYCH, PROSTYCH POLITYK
+-- Tabela 'notes'
+CREATE POLICY "notes_select_final" ON public.notes FOR SELECT 
+USING (public.can_user_access_note(id::bigint, auth.uid()));
 
--- 3. Nakładamy nowe polityki na tabelę 'notes'
--- Zmieniamy typ rzutowania na BIGINT dla pewności
-CREATE POLICY "notes_read_policy" ON notes FOR SELECT
-USING (
-  author_id = auth.uid() 
-  OR 
-  check_is_note_collaborator(id::BIGINT, auth.uid())
-);
-
-CREATE POLICY "notes_write_policy" ON notes FOR ALL
+CREATE POLICY "notes_owner_all" ON public.notes FOR ALL 
 USING (author_id = auth.uid());
 
--- 4. Nakładamy nowe polityki na tabelę 'note_shares'
-CREATE POLICY "shares_read_policy" ON note_shares FOR SELECT
+-- Tabela 'note_shares'
+-- Pozwalamy każdemu widzieć listę udostępnień (to nie zdradza treści notatki)
+-- co całkowicie wyklucza rekursję
+CREATE POLICY "shares_select_final" ON public.note_shares FOR SELECT 
+TO authenticated USING (true);
+
+-- Tylko autor notatki może zarządzać udostępnieniami
+CREATE POLICY "shares_manage_final" ON public.note_shares FOR ALL 
 USING (
-  profile_id = auth.uid() 
-  OR 
-  check_is_note_author(note_id::BIGINT, auth.uid())
+  EXISTS (SELECT 1 FROM public.notes WHERE id = note_id AND author_id = auth.uid())
 );
 
-CREATE POLICY "shares_write_policy" ON note_shares FOR ALL
-USING (check_is_note_author(note_id::BIGINT, auth.uid()));
-
--- 5. Aktywacja RLS
+-- 5. RESTART RLS
 ALTER TABLE notes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE note_shares ENABLE ROW LEVEL SECURITY;
