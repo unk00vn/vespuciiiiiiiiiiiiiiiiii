@@ -62,6 +62,7 @@ const ProfilePage = () => {
     const fileName = `${user.id}-${Math.random()}.${fileExt}`;
     const filePath = `avatars/${fileName}`;
 
+    // 1. Upload file
     const { error: uploadError } = await supabase.storage
       .from("avatars") // Ensure you have a bucket named 'avatars' in Supabase Storage
       .upload(filePath, file);
@@ -73,11 +74,13 @@ const ProfilePage = () => {
       return;
     }
 
+    // 2. Get public URL
     const { data: publicUrlData } = supabase.storage
       .from("avatars")
       .getPublicUrl(filePath);
 
     if (publicUrlData?.publicUrl) {
+      // 3. Update profile with new URL
       setAvatarUrl(publicUrlData.publicUrl);
       toast.success("Awatar przesłany pomyślnie! Zapisz profil, aby zastosować zmiany.");
     } else {
@@ -115,6 +118,8 @@ const ProfilePage = () => {
         return "Nieznany";
     }
   };
+
+  const divisionNames = profile.divisions.map(d => d.name).join(', ');
 
   return (
     <div className="flex flex-col gap-6">
@@ -205,12 +210,12 @@ const ProfilePage = () => {
               </Label>
               <Input id="status" value={getStatusText(profile.status)} readOnly className="mt-1 border-lapd-gold bg-gray-50" />
             </div>
-            {profile.division_name && ( // Zmieniono z division_id na division_name
+            {divisionNames && (
               <div>
                 <Label htmlFor="division" className="text-lapd-navy flex items-center">
                   <Users className="h-4 w-4 mr-2" /> Dywizja
                 </Label>
-                <Input id="division" value={profile.division_name} readOnly className="mt-1 border-lapd-gold bg-gray-50" />
+                <Input id="division" value={divisionNames} readOnly className="mt-1 border-lapd-gold bg-gray-50" />
               </div>
             )}
           </div>

@@ -2,9 +2,31 @@
 
 import { MadeWithDyad } from "@/components/made-with-dyad";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { Bell, FileText, Users } from "lucide-react";
+import { Bell, FileText, Users, Loader2, AlertTriangle } from "lucide-react";
+import { useDashboardStats } from "@/hooks/useApi";
 
 const Dashboard = () => {
+  const { data: stats, isLoading, isError, error } = useDashboardStats();
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-lapd-navy" />
+        <p className="ml-2 text-lapd-navy">Ładowanie statystyk...</p>
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="text-center p-8 bg-red-100 border border-red-400 text-red-700 rounded-lg">
+        <AlertTriangle className="h-6 w-6 mx-auto mb-2" />
+        <h2 className="font-bold">Błąd ładowania statystyk</h2>
+        <p>Nie udało się pobrać danych: {error.message}</p>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-6">
       <h1 className="text-3xl font-bold text-lapd-navy">Witaj, Funkcjonariuszu!</h1>
@@ -19,7 +41,7 @@ const Dashboard = () => {
             <Bell className="h-4 w-4 text-lapd-gold" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-lapd-navy">3</div>
+            <div className="text-2xl font-bold text-lapd-navy">{stats?.newNotifications ?? 0}</div>
             <p className="text-xs text-gray-500">Ostatnie 24 godziny</p>
           </CardContent>
         </Card>
@@ -32,7 +54,7 @@ const Dashboard = () => {
             <FileText className="h-4 w-4 text-lapd-gold" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-lapd-navy">5</div>
+            <div className="text-2xl font-bold text-lapd-navy">{stats?.reportsToReview ?? 0}</div>
             <p className="text-xs text-gray-500">Wymagają Twojej uwagi</p>
           </CardContent>
         </Card>
@@ -45,7 +67,7 @@ const Dashboard = () => {
             <Users className="h-4 w-4 text-lapd-gold" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-lapd-navy">42</div>
+            <div className="text-2xl font-bold text-lapd-navy">{stats?.activeOfficers ?? 0}</div>
             <p className="text-xs text-gray-500">Obecnie na służbie</p>
           </CardContent>
         </Card>

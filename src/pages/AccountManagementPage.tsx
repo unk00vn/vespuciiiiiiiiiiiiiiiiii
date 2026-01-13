@@ -33,15 +33,23 @@ interface Division {
   name: string;
 }
 
+// Rozszerzony typ profilu dla tej strony
+interface ProfileManagement extends Omit<UserProfile, 'divisions'> {
+    division_id: number | null;
+    division_name: string | null;
+}
+
 const AccountManagementPage = () => {
   const { profile: currentUserProfile } = useAuth();
-  const [profiles, setProfiles] = useState<UserProfile[]>([]);
+  const [profiles, setProfiles] = useState<ProfileManagement[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
   const [divisions, setDivisions] = useState<Division[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchAllData = async () => {
     setLoading(true);
+    
+    // Pobieramy profile, role i główną dywizję (division_id)
     const { data: profilesData, error: profilesError } = await supabase
       .from("profiles")
       .select(`
@@ -62,7 +70,7 @@ const AccountManagementPage = () => {
       toast.error("Błąd podczas ładowania profili: " + profilesError.message);
       console.error("Error fetching profiles:", profilesError);
     } else {
-      const formattedProfiles: UserProfile[] = profilesData.map((p: any) => ({
+      const formattedProfiles: ProfileManagement[] = profilesData.map((p: any) => ({
         id: p.id,
         email: p.email,
         badge_number: p.badge_number,
@@ -71,8 +79,8 @@ const AccountManagementPage = () => {
         role_id: p.roles.id,
         role_name: p.roles.name as UserRole,
         role_level: p.roles.level,
-        division_id: p.divisions?.id || undefined,
-        division_name: p.divisions?.name || undefined, // Dodano division_name
+        division_id: p.divisions?.id || null, // Używamy division_id z profiles
+        division_name: p.divisions?.name || null,
         status: p.status as "pending" | "approved" | "rejected",
         avatar_url: p.avatar_url || undefined,
       }));
@@ -129,10 +137,13 @@ const AccountManagementPage = () => {
     }
   };
 
+  // Aktualizacja division_id w tabeli profiles
   const handleDivisionChange = async (profileId: string, newDivisionId: string) => {
+    const divisionId = newDivisionId === "" ? null : parseInt(newDivisionId);
+    
     const { error } = await supabase
       .from("profiles")
-      .update({ division_id: parseInt(newDivisionId) })
+      .update({ division_id: divisionId })
       .eq("id", profileId);
 
     if (error) {
@@ -222,6 +233,7 @@ const AccountManagementPage = () => {
                           <SelectValue placeholder="Wybierz dywizję" />
                         </SelectTrigger>
                         <SelectContent className="bg-lapd-white text-lapd-navy border-lapd-gold">
+                          <SelectItem value="">Brak</SelectItem>
                           {divisions.map((division) => (
                             <SelectItem key={division.id} value={division.id.toString()}>
                               {division.name}

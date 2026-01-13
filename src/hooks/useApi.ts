@@ -36,6 +36,12 @@ export interface Announcement {
   created_at: string;
 }
 
+export interface DashboardStats {
+  reportsToReview: number;
+  activeOfficers: number;
+  newNotifications: number; // Placeholder for now
+}
+
 // --- Hooki do Raportów ---
 
 export const useReports = () => {
@@ -110,6 +116,40 @@ export const useDivisions = () => {
 
       if (error) throw new Error(error.message);
       return data as Division[];
+    },
+  });
+};
+
+// --- Hooki do Statystyk Dashboardu ---
+
+export const useDashboardStats = () => {
+  return useQuery<DashboardStats, Error>({
+    queryKey: ["dashboardStats"],
+    queryFn: async () => {
+      // 1. Raporty do przejrzenia (np. status 'Oczekujący')
+      const { count: reportsCount, error: reportsError } = await supabase
+        .from("reports")
+        .select("id", { count: 'exact', head: true })
+        .eq("status", "Oczekujący"); // Zakładamy, że 'Oczekujący' to status do przejrzenia
+
+      if (reportsError) throw new Error(reportsError.message);
+
+      // 2. Aktywni funkcjonariusze (np. status 'approved')
+      const { count: officersCount, error: officersError } = await supabase
+        .from("profiles")
+        .select("id", { count: 'exact', head: true })
+        .eq("status", "approved");
+
+      if (officersError) throw new Error(officersError.message);
+
+      // 3. Nowe powiadomienia (Placeholder, wymagałoby tabeli powiadomień)
+      const newNotifications = 0; 
+
+      return {
+        reportsToReview: reportsCount || 0,
+        activeOfficers: officersCount || 0,
+        newNotifications: newNotifications,
+      };
     },
   });
 };
