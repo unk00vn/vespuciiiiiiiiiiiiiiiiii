@@ -1,53 +1,61 @@
--- Usuwamy tabele z CASCADE, aby automatycznie usunąć zależne polityki
-DROP TABLE IF EXISTS officer_pin_shares CASCADE;
-DROP TABLE IF EXISTS officer_pins CASCADE;
+-- 1. Deklarujemy zmienne pomocnicze
+DO $$
+DECLARE
+    sergeant_role_id int;
+    target_recipient_id uuid;
+    test_officer_id uuid := gen_random_uuid(); -- Generujemy losowy ID dla profilu
+BEGIN
+    -- 2. Pobieramy ID roli 'Sergeant'
+    SELECT id INTO sergeant_role_id FROM roles WHERE name = 'Sergeant' LIMIT 1;
+    
+    -- 3. Pobieramy ID dowolnego innego funkcjonariusza (adresat raportu)
+    SELECT id INTO target_recipient_id FROM profiles WHERE status = 'approved' LIMIT 1;
 
--- 1. Tabela główna przypięć (Teczka)
-CREATE TABLE officer_pins (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  created_at timestamptz DEFAULT now(),
-  author_id uuid REFERENCES profiles(id) ON DELETE CASCADE,
-  target_profile_id uuid REFERENCES profiles(id) ON DELETE CASCADE,
-  note_id integer REFERENCES notes(id) ON DELETE CASCADE,
-  report_id uuid REFERENCES reports(id) ON DELETE CASCADE
-);
+    -- 4. Tworzymy profil Sierżanta (Mike Miller)
+    INSERT INTO profiles (id, email, first_name, last_name, badge_number, role_id, status)
+    VALUES (
+        test_officer_id, 
+        'mike.miller@lspd.com', 
+        'Mike', 
+        'Miller', 
+        'S-102', 
+        sergeant_role_id, 
+        'approved'
+    );
 
--- 2. UNIKALNE INDEKSY: Zapobiegają przypięciu tego samego dokumentu tej samej osobie
-CREATE UNIQUE INDEX idx_unique_officer_note ON officer_pins (target_profile_id, note_id) WHERE note_id IS NOT NULL;
-CREATE UNIQUE INDEX idx_unique_officer_report ON officer_pins (target_profile_id, report_id) WHERE report_id IS NOT NULL;
+    -- 5. Dodajemy jego prywatną notatkę (bez wpisu w note_shares - nikt inny jej nie zobaczy)
+    INSERT INTO notes (author_id, title, content)
+    VALUES (
+        test_officer_id, 
+        'Prywatne obserwacje: Ganton', 
+        'Zauważono podejrzaną aktywność w okolicach warsztatu na Grove Street. Wymagana dalsza dyskretna obserwacja. Brak powiązań z obecnymi śledztwami.'
+    );
 
--- 3. Tabela udostępnień konkretnym osobom
-CREATE TABLE officer_pin_shares (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  pin_id uuid REFERENCES officer_pins(id) ON DELETE CASCADE,
-  profile_id uuid REFERENCES profiles(id) ON DELETE CASCADE,
-  UNIQUE(pin_id, profile_id)
-);
+    -- 6. Dodajemy jego raport (wysłany do przełożonego)
+    INSERT INTO reports (
+        author_id, 
+        recipient_id, 
+        title, 
+        location, 
+        date, 
+        time, 
+        description, 
+        category, 
+        priority, 
+        status
+    )
+    VALUES (
+        test_officer_id, 
+        target_recipient_id, 
+        'Zatrzymanie pojazdu: Przekroczenie prędkości', 
+        'Del Perro Freeway', 
+        CURRENT_DATE, 
+        '15:45', 
+        'Kierowca czarnej fusty zatrzymany do kontroli. Wystawiono mandat na kwotę 500$. Kierowca współpracował.', 
+        'Ruch drogowy', 
+        'low', 
+        'Zakończony'
+    );
 
--- 4. Włączenie Row Level Security
-ALTER TABLE officer_pins ENABLE ROW LEVEL SECURITY;
-ALTER TABLE officer_pin_shares ENABLE ROW LEVEL SECURITY;
-
--- 5. Polityki dla officer_pins
-CREATE POLICY "View pins" ON officer_pins FOR SELECT USING (
-  author_id = auth.uid() OR 
-  EXISTS (
-    SELECT 1 FROM officer_pin_shares 
-    WHERE pin_id = officer_pins.id AND profile_id = auth.uid()
-  )
-);
-
-CREATE POLICY "Insert pins" ON officer_pins FOR INSERT WITH CHECK (
-  author_id = auth.uid()
-);
-
-CREATE POLICY "Delete pins" ON officer_pins FOR DELETE USING (
-  author_id = auth.uid()
-);
-
--- 6. Polityki dla officer_pin_shares
-CREATE POLICY "View shares" ON officer_pin_shares FOR SELECT USING (true);
-
-CREATE POLICY "Insert shares" ON officer_pin_shares FOR INSERT WITH CHECK (
-  EXISTS (SELECT 1 FROM officer_pins WHERE id = pin_id AND author_id = auth.uid())
-);
+    RAISE NOTICE 'Testowy Sierżant Mike Miller został utworzony wraz z dokumentacją.';
+END $$;
