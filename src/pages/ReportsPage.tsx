@@ -4,18 +4,31 @@ import React from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { PlusCircle, FileText } from "lucide-react";
-import { Link } from "react-router-dom";
-
-// Dummy data for reports
-const dummyReports = [
-  { id: "RPT001", title: "Incydent na Vespucci Beach", author: "John Doe", date: "2024-09-01", status: "Zakończony" },
-  { id: "RPT002", title: "Kradzież w sklepie 24/7", author: "Jane Smith", date: "2024-09-02", status: "W toku" },
-  { id: "RPT003", title: "Zaginiona osoba - Davis", author: "Mike Johnson", date: "2024-09-03", status: "Oczekujący" },
-  { id: "RPT004", title: "Kontrola drogowa - autostrada", author: "Sarah Connor", date: "2024-09-04", status: "Zakończony" },
-];
+import { PlusCircle, FileText, Loader2, AlertTriangle } from "lucide-react";
+import { useReports } from "@/hooks/useApi";
 
 const ReportsPage = () => {
+  const { data: reports, isLoading, isError, error } = useReports();
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-lapd-navy" />
+        <p className="ml-2 text-lapd-navy">Ładowanie raportów...</p>
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="text-center p-8 bg-red-100 border border-red-400 text-red-700 rounded-lg">
+        <AlertTriangle className="h-6 w-6 mx-auto mb-2" />
+        <h2 className="font-bold">Błąd ładowania danych</h2>
+        <p>Nie udało się pobrać raportów: {error.message}</p>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between">
@@ -48,29 +61,39 @@ const ReportsPage = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {dummyReports.map((report) => (
-                  <TableRow key={report.id} className="hover:bg-gray-50">
-                    <TableCell className="font-medium text-lapd-navy">{report.id}</TableCell>
-                    <TableCell className="text-gray-700">{report.title}</TableCell>
-                    <TableCell className="text-gray-700">{report.author}</TableCell>
-                    <TableCell className="text-gray-700">{report.date}</TableCell>
-                    <TableCell>
-                      <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                        report.status === "Zakończony" ? "bg-green-100 text-green-800" :
-                        report.status === "W toku" ? "bg-blue-100 text-blue-800" :
-                        "bg-yellow-100 text-yellow-800"
-                      }`}>
-                        {report.status}
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button variant="ghost" size="sm" className="text-lapd-navy hover:bg-gray-100">
-                        <FileText className="h-4 w-4 mr-1" />
-                        Szczegóły
-                      </Button>
+                {reports && reports.length > 0 ? (
+                  reports.map((report) => (
+                    <TableRow key={report.id} className="hover:bg-gray-50">
+                      <TableCell className="font-medium text-lapd-navy">{report.id.substring(0, 8)}...</TableCell>
+                      <TableCell className="text-gray-700">{report.title}</TableCell>
+                      <TableCell className="text-gray-700">
+                        {report.author?.first_name} {report.author?.last_name} ({report.author?.badge_number})
+                      </TableCell>
+                      <TableCell className="text-gray-700">{report.date || new Date(report.created_at).toLocaleDateString()}</TableCell>
+                      <TableCell>
+                        <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                          report.status === "Zakończony" ? "bg-green-100 text-green-800" :
+                          report.status === "W toku" ? "bg-blue-100 text-blue-800" :
+                          "bg-yellow-100 text-yellow-800"
+                        }`}>
+                          {report.status}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button variant="ghost" size="sm" className="text-lapd-navy hover:bg-gray-100">
+                          <FileText className="h-4 w-4 mr-1" />
+                          Szczegóły
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center text-gray-500">
+                      Brak raportów do wyświetlenia.
                     </TableCell>
                   </TableRow>
-                ))}
+                )}
               </TableBody>
             </Table>
           </div>
