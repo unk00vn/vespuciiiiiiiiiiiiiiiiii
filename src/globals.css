@@ -9,7 +9,7 @@
     --card: 222 47% 4%;
     --card-foreground: 210 40% 98%;
     --muted: 217 33% 15%;
-    --muted-foreground: 215 20% 85%;
+    --muted-foreground: 210 10% 80%; /* Zmieniono na jaśniejszy kolor (np. slate-300) */
     --border: 217 33% 20%;
     --input: 217 33% 20%;
   }

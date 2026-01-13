@@ -110,7 +110,7 @@ const AnnouncementsPage = () => {
               <CardHeader className="pb-2">
                 <div className="flex justify-between items-start">
                   <div className="flex flex-col">
-                    <div className="flex gap-4 text-[10px] text-gray-400 uppercase font-bold mb-1">
+                    <div className="flex gap-4 text-[10px] text-slate-400 uppercase font-bold mb-1">
                       <span className="flex items-center"><User className="h-3 w-3 mr-1" /> {ann.author?.first_name} {ann.author?.last_name} (#{ann.author?.badge_number})</span>
                       <span className="flex items-center"><Clock className="h-3 w-3 mr-1" /> {new Date(ann.created_at).toLocaleString()}</span>
                     </div>
@@ -129,7 +129,7 @@ const AnnouncementsPage = () => {
                 </div>
               </CardHeader>
               <CardContent>
-                <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">{ann.content}</p>
+                <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">{ann.content}</p>
               </CardContent>
             </Card>
           ))}

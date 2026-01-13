@@ -118,7 +118,7 @@ const DivisionsPage = () => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-lapd-navy">Dywizje LSPD</h1>
-          <p className="text-gray-700">Przeglądaj i zarządzaj jednostkami specjalistycznymi.</p>
+          <p className="text-slate-300">Przeglądaj i zarządzaj jednostkami specjalistycznymi.</p>
         </div>
         {isHC && (
           <Button 
@@ -137,7 +137,7 @@ const DivisionsPage = () => {
             <Users className="h-5 w-5 mr-2" />
             Struktura Jednostek
           </CardTitle>
-          <CardDescription className="text-gray-600">
+          <CardDescription className="text-slate-300">
             Poniżej znajduje się lista wszystkich aktywnych dywizji w departamencie.
           </CardDescription>
         </CardHeader>
@@ -162,7 +162,7 @@ const DivisionsPage = () => {
                     <TableRow key={division.id} className="hover:bg-gray-50">
                       <TableCell className="font-mono text-center text-gray-500">{division.id}</TableCell>
                       <TableCell className="font-bold text-lapd-navy">{division.name}</TableCell>
-                      <TableCell className="text-gray-700 text-sm max-w-md">
+                      <TableCell className="text-slate-300 text-sm max-w-md">
                         {division.description || <span className="text-gray-400 italic">Brak opisu</span>}
                       </TableCell>
                       {isHC && (
