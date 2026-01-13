@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useAuth } from "@/contexts/AuthContext";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/supabase";
 import { MessageSquare, Send, Users, User, Plus, Loader2, Image as ImageIcon, Search, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { AttachmentList } from "@/components/AttachmentList";
