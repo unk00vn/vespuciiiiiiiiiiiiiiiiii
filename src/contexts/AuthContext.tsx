@@ -43,35 +43,51 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const navigate = useNavigate();
 
   const fetchUserProfile = async (userId: string): Promise<UserProfile | null> => {
-    const { data: profileData, error: profileError } = await supabase
-      .from("profiles")
-      .select(`
-        id, email, badge_number, first_name, last_name, status, avatar_url,
-        roles (id, name, level)
-      `)
-      .eq("id", userId)
-      .single();
+    try {
+      const { data: profileData, error: profileError } = await supabase
+        .from("profiles")
+        .select(`
+          id, email, badge_number, first_name, last_name, status, avatar_url,
+          roles (id, name, level)
+        `)
+        .eq("id", userId)
+        .single();
 
-    if (profileError) return null;
+      if (profileError || !profileData) return null;
 
-    // Pobierz dywizje z tabeli łączącej
-    const { data: divData } = await supabase
-      .from("profile_divisions")
-      .select("divisions(id, name)")
-      .eq("profile_id", userId);
+      // Próba pobrania dywizji - jeśli tabela nie istnieje (użytkownik nie odpalił SQL), zwracamy pustą listę
+      const { data: divData, error: divError } = await supabase
+        .from("profile_divisions")
+        .select("divisions(id, name)")
+        .eq("profile_id", userId);
 
-    const divisions = divData?.map((d: any) => d.divisions).filter(Boolean) || [];
+      const divisions = divData?.map((d: any) => d.divisions).filter(Boolean) || [];
 
-    return {
-      ...profileData,
-      role_id: (profileData as any).roles.id,
-      role_name: (profileData as any).roles.name as UserRole,
-      role_level: (profileData as any).roles.level,
-      divisions: divisions as any,
-    };
+      return {
+        ...profileData,
+        role_id: (profileData as any).roles.id,
+        role_name: (profileData as any).roles.name as UserRole,
+        role_level: (profileData as any).roles.level,
+        divisions: divisions as any,
+      };
+    } catch (e) {
+      console.error("Error fetching profile:", e);
+      return null;
+    }
   };
 
   useEffect(() => {
+    // Sprawdzenie sesji przy startcie
+    supabase.auth.getSession().then(async ({ data: { session: currentSession } }) => {
+      setSession(currentSession);
+      setUser(currentSession?.user || null);
+      if (currentSession?.user) {
+        const userProfile = await fetchUserProfile(currentSession.user.id);
+        setProfile(userProfile);
+      }
+      setLoading(false);
+    });
+
     const { data: authListener } = supabase.auth.onAuthStateChange(async (_event, currentSession) => {
       setSession(currentSession);
       setUser(currentSession?.user || null);
@@ -89,23 +105,40 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const signIn = async (email: string, password: string) => {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) { toast.error(error.message); return { error }; }
+    if (error) { 
+      toast.error("Błąd logowania: " + error.message); 
+      return { error }; 
+    }
+    
+    // Po poprawnym zalogowaniu, profil zostanie pobrany przez onAuthStateChange
     return { error: null };
   };
 
   const signUp = async (email: string, password: string, badgeNumber: string) => {
     const { data, error } = await supabase.auth.signUp({ email, password });
-    if (error) { toast.error(error.message); return { error }; }
+    if (error) { 
+      toast.error(error.message); 
+      return { error }; 
+    }
     
     const { data: roleData } = await supabase.from("roles").select("id").eq("name", "Officer").single();
-    await supabase.from("profiles").insert({ id: data.user?.id, email, badge_number: badgeNumber, role_id: roleData?.id, status: "pending" });
+    await supabase.from("profiles").insert({ 
+      id: data.user?.id, 
+      email, 
+      badge_number: badgeNumber, 
+      role_id: roleData?.id, 
+      status: "pending" 
+    });
     
-    toast.info("Konto oczekuje na akceptację.");
+    toast.info("Konto utworzone. Oczekuje na akceptację przez dowództwo.");
     return { error: null };
   };
 
   const signOut = async () => {
     await supabase.auth.signOut();
+    setProfile(null);
+    setUser(null);
+    setSession(null);
     navigate("/login");
     return { error: null };
   };
@@ -125,8 +158,32 @@ export const useAuth = () => {
 
 export const ProtectedRoute = ({ children, allowedRoles }: { children: ReactNode; allowedRoles?: UserRole[] }) => {
   const { user, profile, loading } = useAuth();
-  if (loading) return <div className="p-20 text-center">Ładowanie...</div>;
-  if (!user || !profile || profile.status !== "approved") return <Navigate to="/login" />;
-  if (allowedRoles && !allowedRoles.includes(profile.role_name)) return <Navigate to="/" />;
+  
+  if (loading) return (
+    <div className="min-h-screen flex items-center justify-center bg-lapd-navy">
+      <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-lapd-gold"></div>
+    </div>
+  );
+  
+  if (!user) return <Navigate to="/login" />;
+  
+  if (profile && profile.status === "pending") {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-lapd-navy p-4 text-center">
+        <div className="bg-white p-8 rounded-lg border-2 border-lapd-gold max-w-md">
+          <h2 className="text-2xl font-bold text-lapd-navy mb-4">Konto Oczekujące</h2>
+          <p className="text-gray-600 mb-6">Twoje konto zostało utworzone, ale musi zostać zaakceptowane przez kadrę dowódczą (LT+).</p>
+          <Button onClick={() => window.location.href = "/login"} className="bg-lapd-gold text-lapd-navy">Wróć do logowania</Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!profile || profile.status === "rejected") return <Navigate to="/login" />;
+  
+  if (allowedRoles && !allowedRoles.includes(profile.role_name)) {
+    return <Navigate to="/" />;
+  }
+  
   return <>{children}</>;
 };
