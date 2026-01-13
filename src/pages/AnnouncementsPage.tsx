@@ -73,9 +73,9 @@ const AnnouncementsPage = () => {
   return (
     <div className="flex flex-col gap-6">
       <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold text-lapd-navy">Ogłoszenia</h1>
+        <h1 className="text-3xl font-bold text-slate-800">Ogłoszenia</h1>
         {canAdd && (
-          <Button onClick={() => setIsAdding(!isAdding)} className="bg-lapd-gold text-lapd-navy font-bold">
+          <Button onClick={() => setIsAdding(!isAdding)} className="bg-lapd-gold text-slate-800 font-bold">
             {isAdding ? "ANULUJ" : "NOWE OGŁOSZENIE"}
           </Button>
         )}
@@ -110,11 +110,11 @@ const AnnouncementsPage = () => {
               <CardHeader className="pb-2">
                 <div className="flex justify-between items-start">
                   <div className="flex flex-col">
-                    <div className="flex gap-4 text-[10px] text-slate-800 uppercase font-bold mb-1">
+                    <div className="flex gap-4 text-[10px] text-slate-600 uppercase font-bold mb-1">
                       <span className="flex items-center"><User className="h-3 w-3 mr-1" /> {ann.author?.first_name} {ann.author?.last_name} (#{ann.author?.badge_number})</span>
                       <span className="flex items-center"><Clock className="h-3 w-3 mr-1" /> {new Date(ann.created_at).toLocaleString()}</span>
                     </div>
-                    <CardTitle className="text-lapd-navy uppercase tracking-tight">{ann.title}</CardTitle>
+                    <CardTitle className="text-slate-800 uppercase tracking-tight">{ann.title}</CardTitle>
                   </div>
                   {canDelete && (
                     <Button 

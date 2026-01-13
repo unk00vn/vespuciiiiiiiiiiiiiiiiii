@@ -88,7 +88,7 @@ const PersonnelPage = () => {
 
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="text-3xl font-bold text-lapd-navy">Lista Funkcjonariuszy</h1>
+      <h1 className="text-3xl font-bold text-slate-800">Lista Funkcjonariuszy</h1>
       
       <Card className="border-lapd-gold shadow-lg">
         <CardContent className="p-0">
@@ -107,17 +107,17 @@ const PersonnelPage = () => {
               ) : (
                 users.map(u => (
                   <TableRow key={u.id} className="hover:bg-gray-50">
-                    <TableCell className="font-bold text-lapd-navy">#{u.badge_number} {u.first_name} {u.last_name}</TableCell>
-                    <TableCell><Badge variant="outline" className="border-lapd-navy text-lapd-navy">{u.role_name}</Badge></TableCell>
+                    <TableCell className="font-bold text-slate-800">#{u.badge_number} {u.first_name} {u.last_name}</TableCell>
+                    <TableCell><Badge variant="outline" className="border-slate-800 text-slate-800">{u.role_name}</Badge></TableCell>
                     <TableCell>
                       <div className="flex flex-wrap gap-1">
-                        {u.divisions.map(d => <Badge key={d.id} className="bg-lapd-gold text-lapd-navy text-[10px] uppercase font-bold">{d.name}</Badge>)}
+                        {u.divisions.map(d => <Badge key={d.id} className="bg-lapd-gold text-slate-800 text-[10px] uppercase font-bold">{d.name}</Badge>)}
                       </div>
                     </TableCell>
                     <TableCell className="text-right px-6 space-x-2">
                       <OfficerDossier targetOfficer={u} />
                       {isEditor && (
-                        <Button variant="ghost" size="sm" onClick={() => openEdit(u)} className="hover:bg-lapd-gold/20 text-lapd-navy">
+                        <Button variant="ghost" size="sm" onClick={() => openEdit(u)} className="hover:bg-lapd-gold/20 text-slate-800">
                           <Edit className="h-4 w-4" />
                         </Button>
                       )}
@@ -132,12 +132,12 @@ const PersonnelPage = () => {
 
       <Dialog open={!!editingUser} onOpenChange={() => !saving && setEditingUser(null)}>
         <DialogContent className="border-lapd-gold">
-          <DialogHeader><DialogTitle className="text-lapd-navy uppercase font-black">Edycja Dywizji</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle className="text-slate-800 uppercase font-black">Edycja Dywizji</DialogTitle></DialogHeader>
           <div className="grid gap-4 py-4">
             {divisions.map(d => (
               <div key={d.id} className="flex items-center space-x-3 p-2 hover:bg-gray-50 rounded">
                 <Checkbox id={`div-${d.id}`} checked={selectedDivisions.includes(d.id)} onCheckedChange={(checked) => setSelectedDivisions(prev => checked ? [...prev, d.id] : prev.filter(id => id !== d.id))} />
-                <Label htmlFor={`div-${d.id}`} className="font-medium cursor-pointer flex-1 text-lapd-navy">{d.name}</Label>
+                <Label htmlFor={`div-${d.id}`} className="font-medium cursor-pointer flex-1 text-slate-800">{d.name}</Label>
               </div>
             ))}
           </div>

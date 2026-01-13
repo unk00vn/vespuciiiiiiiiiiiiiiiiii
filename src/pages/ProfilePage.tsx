@@ -77,14 +77,14 @@ const ProfilePage = () => {
 
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="text-3xl font-bold text-lapd-navy">Mój Profil</h1>
+      <h1 className="text-3xl font-bold text-slate-800">Mój Profil</h1>
 
       <Card className="bg-lapd-white border-lapd-gold shadow-md">
         <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="text-lapd-navy">Dane Funkcjonariusza</CardTitle>
+          <CardTitle className="text-slate-800">Dane Funkcjonariusza</CardTitle>
           <Button
             variant="outline"
-            className="border-lapd-gold text-lapd-navy hover:bg-lapd-gold"
+            className="border-lapd-gold text-slate-800 hover:bg-lapd-gold"
             onClick={() => setIsEditing(!isEditing)}
           >
             {isEditing ? "Anuluj" : "Edytuj Dane"}
@@ -102,9 +102,9 @@ const ProfilePage = () => {
                 {isEditing && (
                     <label htmlFor="avatar-upload" className="absolute bottom-0 right-0 bg-lapd-gold p-1 rounded-full cursor-pointer hover:bg-yellow-600 transition-colors shadow-md">
                         {isUploading ? (
-                            <Loader2 className="h-5 w-5 text-lapd-navy animate-spin" />
+                            <Loader2 className="h-5 w-5 text-slate-800 animate-spin" />
                         ) : (
-                            <Upload className="h-5 w-5 text-lapd-navy" />
+                            <Upload className="h-5 w-5 text-slate-800" />
                         )}
                         <Input 
                             id="avatar-upload" 
@@ -121,34 +121,36 @@ const ProfilePage = () => {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <Label className="text-lapd-navy flex items-center mb-1"><Mail className="h-4 w-4 mr-2" /> Email</Label>
+              <Label className="text-slate-800 flex items-center mb-1"><Mail className="h-4 w-4 mr-2" /> Email</Label>
               <Input value={profile.email} readOnly className="bg-gray-100 border-lapd-gold text-slate-800" />
             </div>
             <div>
-              <Label className="text-lapd-navy flex items-center mb-1"><Briefcase className="h-4 w-4 mr-2" /> Odznaka</Label>
+              <Label className="text-slate-800 flex items-center mb-1"><Briefcase className="h-4 w-4 mr-2" /> Odznaka</Label>
               <Input value={profile.badge_number} readOnly className="bg-gray-100 border-lapd-gold font-bold text-slate-800" />
             </div>
             <div>
-              <Label className="text-lapd-navy flex items-center mb-1"><UserIcon className="h-4 w-4 mr-2" /> Imię</Label>
+              <Label className="text-slate-800 flex items-center mb-1"><UserIcon className="h-4 w-4 mr-2" /> Imię</Label>
               <Input value={firstName} onChange={(e) => setFirstName(e.target.value)} readOnly={!isEditing} className="border-lapd-gold text-slate-800" />
             </div>
             <div>
-              <Label className="text-lapd-navy flex items-center mb-1"><UserIcon className="h-4 w-4 mr-2" /> Nazwisko</Label>
+              <Label className="text-slate-800 flex items-center mb-1"><UserIcon className="h-4 w-4 mr-2" /> Nazwisko</Label>
               <Input value={lastName} onChange={(e) => setLastName(e.target.value)} readOnly={!isEditing} className="border-lapd-gold text-slate-800" />
             </div>
           </div>
 
           <div className="border-t border-gray-200 pt-6">
-            <Label className="text-lapd-navy flex items-center mb-3 text-lg font-bold">
+            <Label className="text-slate-800 flex items-center mb-3 text-lg font-bold">
               <Users className="h-5 w-5 mr-2 text-lapd-gold" /> Przynależność do Dywizji
             </Label>
             <div className="flex flex-wrap gap-2">
               {profile.divisions && profile.divisions.length > 0 ? (
-                profile.divisions.map(d => (
-                  <Badge key={d.id} className="bg-lapd-navy text-lapd-gold px-4 py-2 text-sm">
-                    {d.name}
-                  </Badge>
-                ))
+                <div className="flex flex-wrap gap-2">
+                  {profile.divisions.map(d => (
+                    <Badge key={d.id} className="bg-lapd-navy text-lapd-gold px-4 py-2 text-sm">
+                      {d.name}
+                    </Badge>
+                  ))}
+                </div>
               ) : (
                 <p className="text-gray-500 italic text-sm">Brak przypisanych dywizji specjalistycznych.</p>
               )}
@@ -156,7 +158,7 @@ const ProfilePage = () => {
           </div>
 
           {isEditing && (
-            <Button className="w-full bg-lapd-gold text-lapd-navy font-bold" onClick={handleSaveProfile} disabled={isUploading}>
+            <Button className="w-full bg-lapd-gold text-slate-800 font-bold" onClick={handleSaveProfile} disabled={isUploading}>
               ZAPISZ ZMIANY W PROFILU
             </Button>
           )}
