@@ -1,4 +1,3 @@
-Signed URL -> R2 Upload -> DB Metadata).">
 "use client";
 
 import { useState, useCallback } from "react";
