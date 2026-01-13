@@ -122,7 +122,8 @@ export const ReportForm = () => {
           </h3>
           <AttachmentList attachments={tempAttachments} canDelete={true} onDelete={(id) => setTempAttachments(prev => prev.filter(a => a.id !== id))} />
           <div className="mt-4">
-            <FileUploadWidget parentId="temp" parentType="report" onUploadSuccess={handleAttachmentSuccess} />
+            {/* Usunięto parentId="temp" */}
+            <FileUploadWidget parentType="report" onUploadSuccess={handleAttachmentSuccess} />
           </div>
         </div>
       </CardContent>

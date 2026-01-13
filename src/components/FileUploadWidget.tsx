@@ -8,7 +8,7 @@ import { Progress } from "@/components/ui/progress";
 import { Upload, FileText, Loader2, Paperclip } from "lucide-react";
 
 interface FileUploadWidgetProps {
-    parentId: string;
+    parentId?: string; // Zmieniono na opcjonalne
     parentType: 'report' | 'note' | 'chat';
     onUploadSuccess: (attachments: any[]) => void;
 }
