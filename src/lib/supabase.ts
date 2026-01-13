@@ -10,22 +10,3 @@ if (!supabaseUrl || !supabaseAnonKey) {
 }
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
-
-// Test połączenia z bazą danych
-export const testDatabaseConnection = async () => {
-  try {
-    console.log("Testing database connection...");
-    const { data, error } = await supabase.from("profiles").select("id").limit(1);
-    
-    if (error) {
-      console.error("Database connection failed:", error.message);
-      return false;
-    }
-    
-    console.log("Database connection successful!");
-    return true;
-  } catch (err) {
-    console.error("Database connection error:", err);
-    return false;
-  }
-};

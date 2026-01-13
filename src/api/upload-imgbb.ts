@@ -41,7 +41,9 @@ export async function uploadImgBB(reqBody: UploadImgBBRequest): Promise<UploadIm
     });
     
     if (!imgbbResponse.ok) {
-        return { error: 'Błąd komunikacji z ImgBB.' };
+        // Jeśli ImgBB zwróci błąd, musisz go obsłużyć
+        const errorData = await imgbbResponse.json();
+        return { error: errorData.error.message || 'Błąd komunikacji z ImgBB.' };
     }
     
     const imgbbData = await imgbbResponse.json();
