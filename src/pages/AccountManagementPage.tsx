@@ -156,7 +156,6 @@ const AccountManagementPage = () => {
         Brak uprawnień do dostępu do tej strony.
       </div>
     );
-  );
   }
 
   return (
