@@ -5,94 +5,57 @@ import { useFileUpload } from "@/hooks/useFileUpload";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Upload, FileText, Loader2 } from "lucide-react";
-import { toast } from "sonner";
+import { Upload, FileText, Loader2, Paperclip } from "lucide-react";
 
 interface FileUploadWidgetProps {
     parentId: string;
-    parentType: 'report' | 'note' | 'chat';
+    parentType: 'report' | 'note';
     onUploadSuccess: (attachment: any) => void;
 }
 
 export const FileUploadWidget = ({ parentId, parentType, onUploadSuccess }: FileUploadWidgetProps) => {
     const { uploadFile, isUploading, progress } = useFileUpload();
-    const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files.length > 0) {
-            setSelectedFile(e.target.files[0]);
-        }
-    };
-
-    const handleUpload = async () => {
-        if (!selectedFile) {
-            toast.warning("Wybierz plik do przesłania.");
-            return;
-        }
-
-        const options = parentType === 'report' ? { reportId: parentId } :
-                        parentType === 'note' ? { noteId: parentId } :
-                        { chatId: parentId };
-
-        const result = await uploadFile(selectedFile, options);
-
-        if (result) {
-            onUploadSuccess(result);
-            setSelectedFile(null);
+            const files = Array.from(e.target.files);
+            for (const file of files) {
+                const options = parentType === 'report' ? { reportId: parentId } : { noteId: parentId };
+                const result = await uploadFile(file, options);
+                if (result) onUploadSuccess(result);
+            }
         }
     };
 
     return (
-        <Card className="border-lapd-gold shadow-sm">
-            <CardHeader className="p-4 pb-2">
-                <CardTitle className="text-lapd-navy text-lg flex items-center">
-                    <Upload className="h-5 w-5 mr-2" />
-                    Załącz Plik
-                </CardTitle>
-            </CardHeader>
-            <CardContent className="p-4 pt-2 space-y-3">
-                <Input 
-                    type="file" 
-                    onChange={handleFileChange} 
-                    disabled={isUploading}
-                    className="border-lapd-gold"
-                />
-                
-                {selectedFile && (
-                    <div className="text-sm text-gray-600 flex items-center justify-between">
-                        <span className="truncate max-w-[70%]">
-                            <FileText className="h-4 w-4 inline mr-1 text-lapd-gold" />
-                            {selectedFile.name}
-                        </span>
-                        <span className="text-xs text-gray-400">
-                            {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
-                        </span>
+        <div className="space-y-4 p-4 border-2 border-dashed border-lapd-gold/30 rounded-lg bg-black/20">
+            <div className="flex flex-col items-center justify-center py-4">
+                <Paperclip className="h-8 w-8 text-lapd-gold mb-2 opacity-50" />
+                <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mb-4">Przeciągnij zdjęcia lub kliknij aby wybrać</p>
+                <label className="cursor-pointer">
+                    <div className="bg-lapd-gold text-lapd-navy px-6 py-2 rounded font-black text-xs uppercase hover:bg-yellow-500 transition-colors">
+                        {isUploading ? "PRZESYŁANIE..." : "DODAJ ZAŁĄCZNIK"}
                     </div>
-                )}
-
-                {isUploading && (
-                    <Progress value={progress} className="h-2 bg-gray-200" indicatorClassName="bg-lapd-gold" />
-                )}
-
-                <Button 
-                    onClick={handleUpload} 
-                    disabled={!selectedFile || isUploading}
-                    className="w-full bg-lapd-navy text-lapd-gold hover:bg-lapd-navy/90 font-bold"
-                >
-                    {isUploading ? (
-                        <>
-                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                            PRZESYŁANIE...
-                        </>
-                    ) : (
-                        <>
-                            <Upload className="h-4 w-4 mr-2" />
-                            PRZEŚLIJ ZAŁĄCZNIK
-                        </>
-                    )}
-                </Button>
-            </CardContent>
-        </Card>
+                    <Input 
+                        type="file" 
+                        multiple 
+                        className="hidden" 
+                        onChange={handleFileChange} 
+                        disabled={isUploading}
+                        accept="image/*,application/pdf"
+                    />
+                </label>
+            </div>
+            
+            {isUploading && (
+                <div className="space-y-2">
+                    <div className="flex justify-between text-[10px] font-bold text-lapd-gold">
+                        <span>UPLOAD W TOKU...</span>
+                        <span>{progress}%</span>
+                    </div>
+                    <Progress value={progress} className="h-1 bg-white/10" indicatorClassName="bg-lapd-gold" />
+                </div>
+            )}
+        </div>
     );
 };

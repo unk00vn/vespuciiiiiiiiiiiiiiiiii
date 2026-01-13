@@ -1,89 +1,44 @@
 "use client";
 
 import React from "react";
-import { FileText, Image, Download, XCircle } from "lucide-react";
+import { FileText, Image as ImageIcon, ExternalLink, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-
-interface Attachment {
-    id: string;
-    file_url: string;
-    file_type: string;
-    file_size: number;
-    created_at: string;
-}
 
 interface AttachmentListProps {
-    attachments: Attachment[];
-    onDelete?: (id: string) => void; // Opcjonalna funkcja usuwania
-    canDelete: boolean;
+    attachments: any[];
+    onDelete?: (id: string) => void;
+    canDelete?: boolean;
 }
 
-const formatFileSize = (bytes: number) => {
-    if (bytes === 0) return '0 Bytes';
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-};
-
-const getFileIcon = (fileType: string) => {
-    if (fileType.startsWith('image/')) {
-        return <Image className="h-5 w-5 text-blue-500" />;
-    }
-    if (fileType.includes('pdf')) {
-        return <FileText className="h-5 w-5 text-red-500" />;
-    }
-    if (fileType.includes('word')) {
-        return <FileText className="h-5 w-5 text-indigo-500" />;
-    }
-    return <FileText className="h-5 w-5 text-gray-500" />;
-};
-
 export const AttachmentList = ({ attachments, onDelete, canDelete }: AttachmentListProps) => {
-    if (attachments.length === 0) {
-        return <p className="text-sm text-gray-400 italic">Brak załączników.</p>;
-    }
+    if (attachments.length === 0) return null;
 
     return (
-        <div className="space-y-3">
-            {attachments.map((attachment) => (
-                <div 
-                    key={attachment.id} 
-                    className="flex items-center justify-between p-3 border border-gray-200 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors"
-                >
-                    <div className="flex items-center space-x-3 min-w-0">
-                        {getFileIcon(attachment.file_type)}
-                        <div className="min-w-0">
-                            <a 
-                                href={attachment.file_url} 
-                                target="_blank" 
-                                rel="noopener noreferrer"
-                                className="text-sm font-medium text-lapd-navy hover:underline truncate block"
-                            >
-                                {attachment.file_url.split('/').pop()}
-                            </a>
-                            <Badge variant="secondary" className="text-[10px] mt-0.5">
-                                {formatFileSize(attachment.file_size)}
-                            </Badge>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {attachments.map((file) => (
+                <div key={file.id} className="flex items-center justify-between p-3 bg-white/5 border border-white/10 rounded-lg group">
+                    <div className="flex items-center space-x-3 overflow-hidden">
+                        {file.file_type.startsWith('image/') ? (
+                            <div className="h-10 w-10 rounded border border-lapd-gold/30 overflow-hidden flex-shrink-0">
+                                <img src={file.file_url} alt="Preview" className="h-full w-full object-cover" />
+                            </div>
+                        ) : (
+                            <FileText className="h-10 w-10 p-2 text-lapd-gold bg-white/5 rounded" />
+                        )}
+                        <div className="truncate">
+                            <p className="text-[10px] font-black text-white uppercase truncate">{file.file_url.split('/').pop()}</p>
+                            <p className="text-[8px] text-slate-500 font-mono">{(file.file_size / 1024).toFixed(1)} KB</p>
                         </div>
                     </div>
-                    <div className="flex items-center space-x-2">
-                        {canDelete && onDelete && (
-                            <Button 
-                                variant="ghost" 
-                                size="icon" 
-                                onClick={() => onDelete(attachment.id)}
-                                className="text-red-500 hover:bg-red-100"
-                            >
-                                <XCircle className="h-4 w-4" />
+                    <div className="flex gap-1">
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-white" asChild>
+                            <a href={file.file_url} target="_blank" rel="noreferrer"><ExternalLink className="h-4 w-4" /></a>
+                        </Button>
+                        {canDelete && (
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-500 hover:text-red-500" onClick={() => onDelete?.(file.id)}>
+                                <Trash2 className="h-4 w-4" />
                             </Button>
                         )}
-                        <Button asChild size="sm" className="bg-lapd-gold text-lapd-navy hover:bg-yellow-600">
-                            <a href={attachment.file_url} target="_blank" download>
-                                <Download className="h-4 w-4" />
-                            </a>
-                        </Button>
                     </div>
                 </div>
             ))}
