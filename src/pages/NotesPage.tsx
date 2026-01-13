@@ -44,7 +44,7 @@ const NotesPage = () => {
 
   useEffect(() => {
     fetchNotes();
-    supabase.from("profiles").select("id, first_name, last_name").eq("status", "approved").then(({data}) => setAllOfficers(data || []));
+    supabase.from("profiles").select("id, first_name, last_name, badge_number").eq("status", "approved").then(({data}) => setAllOfficers(data || []));
   }, [profile]);
 
   const handleAdd = async () => {
@@ -68,8 +68,17 @@ const NotesPage = () => {
 
   const handleShare = async (officerId: string) => {
     const { error } = await supabase.from("note_shares").insert({ note_id: sharingNote.id, profile_id: officerId });
-    if (error) toast.error("Już udostępniono");
-    else toast.success("Udostępniono");
+    
+    if (error) {
+      // Sprawdzamy, czy błąd to naruszenie unikalności (kod 23505 w PostgreSQL)
+      if (error.code === '23505') {
+        toast.warning("Ta notatka jest już udostępniona temu funkcjonariuszowi.");
+      } else {
+        toast.error("Błąd udostępniania: " + error.message);
+      }
+    } else {
+      toast.success("Udostępniono pomyślnie.");
+    }
   };
 
   return (

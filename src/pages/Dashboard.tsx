@@ -7,8 +7,8 @@ import { Bell, FileText, Users, AlertTriangle, Loader2 } from "lucide-react";
 import { OfficerStats } from "@/components/OfficerStats";
 import { QuickActions } from "@/components/QuickActions";
 import { RecentIncidents } from "@/components/RecentIncidents";
-import { IncidentStatsChart } from "@/components/IncidentStatsChart";
 import { ActivePatrols } from "@/components/ActivePatrols";
+import { ReportStatsChart } from "@/components/ReportStatsChart";
 import { supabase, testDatabaseConnection } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -163,7 +163,7 @@ const Dashboard = () => {
         <ActivePatrols />
       </div>
 
-      <IncidentStatsChart />
+      {profile?.id && <ReportStatsChart profileId={profile.id} />}
 
       <MadeWithDyad />
     </div>
