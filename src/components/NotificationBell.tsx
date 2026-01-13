@@ -1,38 +1,48 @@
 "use client";
 
-import React, { useState } from "react";
-import { Bell, X, AlertCircle, CheckCircle, Info } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { Bell, Info, FileText, ClipboardList, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ScrollArea } from "@/components/ui/scroll-area";
-
-interface Notification {
-  id: string;
-  title: string;
-  description: string;
-  time: string;
-  read: boolean;
-  type: "alert" | "info" | "success";
-}
+import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/contexts/AuthContext";
 
 export const NotificationBell = () => {
-  const [notifications, setNotifications] = useState<Notification[]>([
-    {
-      id: "1",
-      title: "Nowy incydent",
-      description: "Zgłoszenie kradzieży samochodu w rejonie Vespucci",
-      time: "2 minuty temu",
-      read: false,
-      type: "alert"
-    }
-  ]);
+  const { profile } = useAuth();
+  const [notifications, setNotifications] = useState<any[]>([]);
 
-  const unreadCount = notifications.filter(n => !n.read).length;
+  const fetchNotifications = async () => {
+    if (!profile) return;
+    const { data } = await supabase.from("notifications").select("*").eq("user_id", profile.id).order("created_at", { ascending: false }).limit(20);
+    setNotifications(data || []);
+  };
+
+  useEffect(() => {
+    fetchNotifications();
+    const channel = supabase.channel('realtime_notifications')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${profile?.id}` }, () => {
+        fetchNotifications();
+      }).subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [profile]);
+
+  const unreadCount = notifications.filter(n => !n.is_read).length;
+
+  const markAllAsRead = async () => {
+    if (!profile) return;
+    await supabase.from("notifications").update({ is_read: true }).eq("user_id", profile.id);
+    fetchNotifications();
+  };
+
+  const getIcon = (type: string) => {
+    switch(type) {
+      case 'report': return <FileText className="h-4 w-4 text-blue-400" />;
+      case 'note': return <ClipboardList className="h-4 w-4 text-amber-400" />;
+      default: return <Info className="h-4 w-4 text-lapd-gold" />;
+    }
+  };
 
   return (
     <Popover>
@@ -40,34 +50,30 @@ export const NotificationBell = () => {
         <Button variant="ghost" size="icon" className="relative text-lapd-gold hover:bg-white/10">
           <Bell className="h-5 w-5" />
           {unreadCount > 0 && (
-            <Badge className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 text-xs bg-red-600 text-white border-2 border-lapd-darker">
+            <Badge className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 text-[10px] bg-red-600 border-2 border-lapd-darker flex items-center justify-center">
               {unreadCount}
             </Badge>
           )}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-80 p-0 bg-lapd-darker border-lapd-gold/50 shadow-2xl" align="end">
-        <div className="border-b border-white/10 p-4">
-          <h3 className="font-bold text-white uppercase text-sm tracking-widest">Centrum Powiadomień</h3>
+      <PopoverContent className="w-80 p-0 bg-lapd-darker border-lapd-gold shadow-2xl" align="end">
+        <div className="border-b border-white/10 p-4 flex justify-between items-center">
+          <h3 className="font-black text-white uppercase text-xs tracking-widest">Powiadomienia</h3>
+          {unreadCount > 0 && <Button variant="ghost" size="sm" className="text-[9px] h-6 uppercase font-bold text-lapd-gold" onClick={markAllAsRead}>Oznacz jako przeczytane</Button>}
         </div>
-        
         <ScrollArea className="h-80">
           {notifications.length === 0 ? (
-            <div className="p-10 text-center text-slate-500 text-xs uppercase font-bold italic">
-              Brak nowych komunikatów
-            </div>
+            <div className="p-10 text-center text-slate-500 text-[10px] uppercase italic">Brak komunikatów</div>
           ) : (
             <div className="divide-y divide-white/5">
               {notifications.map((n) => (
-                <div key={n.id} className="p-4 hover:bg-white/5 transition-colors">
+                <div key={n.id} className={`p-4 transition-colors ${!n.is_read ? 'bg-white/5' : 'opacity-60'}`}>
                   <div className="flex items-start gap-3">
-                    <div className="mt-1">
-                      {n.type === "alert" ? <AlertCircle className="h-4 w-4 text-red-500" /> : <Info className="h-4 w-4 text-lapd-gold" />}
-                    </div>
+                    <div className="mt-1">{getIcon(n.type)}</div>
                     <div>
-                      <h4 className="text-xs font-black text-white uppercase">{n.title}</h4>
-                      <p className="text-[11px] text-slate-400 mt-1 leading-relaxed">{n.description}</p>
-                      <p className="text-[9px] text-slate-600 mt-2 font-mono">{n.time}</p>
+                      <h4 className="text-[11px] font-black text-white uppercase">{n.title}</h4>
+                      <p className="text-[10px] text-slate-400 mt-1">{n.description}</p>
+                      <p className="text-[8px] text-slate-600 mt-2 font-mono">{new Date(n.created_at).toLocaleString()}</p>
                     </div>
                   </div>
                 </div>

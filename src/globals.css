@@ -8,36 +8,32 @@
     --foreground: 210 40% 98%;
     --card: 222 47% 4%;
     --card-foreground: 210 40% 98%;
-    --muted-foreground: 215 20% 85%; /* Bardzo jasny dla widoczności */
+    --muted: 217 33% 15%;
+    --muted-foreground: 215 20% 85%;
     --border: 217 33% 20%;
+    --input: 217 33% 20%;
   }
 }
 
 body {
-  @apply bg-background text-white antialiased;
-  color: #ffffff !important;
+  @apply bg-[#050b14] text-white antialiased;
+  background-color: #050b14 !important;
 }
 
-/* Wymuszenie bieli dla wszystkich standardowych klas tekstowych */
-h1, h2, h3, h4, h5, h6, .text-lapd-navy, .text-gray-900, .text-slate-900 {
-  color: #ffffff !important;
-}
-
-p, span, label, .text-gray-700, .text-slate-700, .text-muted-foreground {
-  color: #e2e8f0 !important; /* Jasne srebro */
-}
-
-/* Pola formularzy - maksymalna widoczność */
-input, textarea, select, .input {
-  color: #ffffff !important;
+/* Naprawa białych plam w formularzach */
+input, textarea, select, [role="combobox"], .bg-white, .bg-background {
   background-color: #0f172a !important;
+  color: #ffffff !important;
   border-color: #334155 !important;
 }
 
-input::placeholder {
-  color: #94a3b8 !important;
+/* Specyficzne dla Shadcn/UI Select i Popover */
+[data-radix-popper-content-wrapper] > div {
+  background-color: #0f172a !important;
+  border: 1px solid #C9A635 !important;
+  color: white !important;
 }
 
-.bg-lapd-white {
-  background-color: #0f172a !important; /* Zamiana jasnych kart na ciemne z białym tekstem */
+label {
+  color: #C9A635 !important;
 }
