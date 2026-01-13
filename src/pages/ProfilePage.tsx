@@ -122,19 +122,19 @@ const ProfilePage = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <Label className="text-lapd-navy flex items-center mb-1"><Mail className="h-4 w-4 mr-2" /> Email</Label>
-              <Input value={profile.email} readOnly className="bg-gray-100 border-lapd-gold text-lapd-navy" />
+              <Input value={profile.email} readOnly className="bg-gray-100 border-lapd-gold text-slate-800" />
             </div>
             <div>
               <Label className="text-lapd-navy flex items-center mb-1"><Briefcase className="h-4 w-4 mr-2" /> Odznaka</Label>
-              <Input value={profile.badge_number} readOnly className="bg-gray-100 border-lapd-gold font-bold text-lapd-navy" />
+              <Input value={profile.badge_number} readOnly className="bg-gray-100 border-lapd-gold font-bold text-slate-800" />
             </div>
             <div>
               <Label className="text-lapd-navy flex items-center mb-1"><UserIcon className="h-4 w-4 mr-2" /> Imię</Label>
-              <Input value={firstName} onChange={(e) => setFirstName(e.target.value)} readOnly={!isEditing} className="border-lapd-gold text-lapd-navy" />
+              <Input value={firstName} onChange={(e) => setFirstName(e.target.value)} readOnly={!isEditing} className="border-lapd-gold text-slate-800" />
             </div>
             <div>
               <Label className="text-lapd-navy flex items-center mb-1"><UserIcon className="h-4 w-4 mr-2" /> Nazwisko</Label>
-              <Input value={lastName} onChange={(e) => setLastName(e.target.value)} readOnly={!isEditing} className="border-lapd-gold text-lapd-navy" />
+              <Input value={lastName} onChange={(e) => setLastName(e.target.value)} readOnly={!isEditing} className="border-lapd-gold text-slate-800" />
             </div>
           </div>
 

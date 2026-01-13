@@ -160,9 +160,9 @@ const DivisionsPage = () => {
                 <TableBody>
                   {divisions.map((division) => (
                     <TableRow key={division.id} className="hover:bg-gray-50">
-                      <TableCell className="font-mono text-center text-gray-500">{division.id}</TableCell>
+                      <TableCell className="font-mono text-center text-slate-800">{division.id}</TableCell>
                       <TableCell className="font-bold text-lapd-navy">{division.name}</TableCell>
-                      <TableCell className="text-slate-700 text-sm max-w-md">
+                      <TableCell className="text-slate-800 text-sm max-w-md">
                         {division.description || <span className="text-gray-500 italic">Brak opisu</span>}
                       </TableCell>
                       {isHC && (
@@ -213,7 +213,7 @@ const DivisionsPage = () => {
                 value={currentDivision.name}
                 onChange={(e) => setCurrentDivision({ ...currentDivision, name: e.target.value })}
                 placeholder="np. Detective Bureau"
-                className="border-lapd-gold focus:ring-lapd-navy"
+                className="border-lapd-gold focus:ring-lapd-navy text-slate-800"
               />
             </div>
             <div className="space-y-2">
@@ -223,7 +223,7 @@ const DivisionsPage = () => {
                 value={currentDivision.description}
                 onChange={(e) => setCurrentDivision({ ...currentDivision, description: e.target.value })}
                 placeholder="Opisz przeznaczenie tej jednostki..."
-                className="border-lapd-gold min-h-[100px]"
+                className="border-lapd-gold min-h-[100px] text-slate-800"
               />
             </div>
           </div>
