@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Bell, Info, FileText, ClipboardList, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -14,27 +14,29 @@ export const NotificationBell = () => {
   const { profile } = useAuth();
   const [notifications, setNotifications] = useState<any[]>([]);
 
-  const fetchNotifications = async () => {
-    if (!profile) return;
+  const fetchNotifications = useCallback(async (isMounted: boolean) => {
+    if (!profile?.id) return;
     const { data } = await supabase
       .from("notifications")
       .select("*")
       .eq("user_id", profile.id)
       .order("created_at", { ascending: false })
       .limit(20);
-    setNotifications(data || []);
-  };
+    if (isMounted) setNotifications(data || []);
+  }, [profile?.id]);
 
   useEffect(() => {
-    fetchNotifications();
-  }, [profile]);
+    let isMounted = true;
+    fetchNotifications(isMounted);
+    return () => { isMounted = false; };
+  }, [fetchNotifications]);
 
   const unreadCount = notifications.filter(n => !n.is_read).length;
 
   const markAllAsRead = async () => {
-    if (!profile) return;
+    if (!profile?.id) return;
     await supabase.from("notifications").update({ is_read: true }).eq("user_id", profile.id);
-    fetchNotifications();
+    fetchNotifications(true);
   };
   
   const deleteNotification = async (id: string) => {

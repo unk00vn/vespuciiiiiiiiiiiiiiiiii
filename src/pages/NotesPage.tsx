@@ -1,16 +1,15 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { PlusCircle, Loader2, Edit, Share2, Eye, ShieldCheck, Trash2, X, AlertTriangle, Save } from "lucide-react";
+import { PlusCircle, Loader2, Edit, Share2, Trash2, X, AlertTriangle, Save, Eye, ShieldCheck } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
-import { Label } from "@/components/ui/label";
 import { FileUploadWidget } from "@/components/FileUploadWidget";
 import { AttachmentList } from "@/components/AttachmentList";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -41,25 +40,31 @@ const NotesPage = () => {
   const [noteToDelete, setNoteToDelete] = useState<any | null>(null);
   const [saving, setSaving] = useState(false);
 
-  const fetchData = async () => {
-    if (!profile) return;
+  const fetchData = useCallback(async (isMounted: boolean) => {
+    if (!profile?.id) return;
     setLoading(true);
     try {
       const { data: myNotes } = await supabase.from("notes").select(`*, attachments(*)`).eq("author_id", profile.id).order("created_at", { ascending: false });
       const { data: shared } = await supabase.from("note_shares").select(`note_id, can_edit, notes(*, attachments(*))`).eq("profile_id", profile.id);
       const { data: officers } = await supabase.from("profiles").select("*").eq("status", "approved");
 
-      setNotes(myNotes || []);
-      setSharedNotes(shared?.map(s => s.notes ? { ...s.notes, can_edit: s.can_edit, is_shared: true } : null).filter(Boolean) || []);
-      setAllOfficers(officers?.filter(o => o.id !== profile.id) || []);
+      if (isMounted) {
+        setNotes(myNotes || []);
+        setSharedNotes(shared?.map(s => s.notes ? { ...s.notes, can_edit: s.can_edit, is_shared: true } : null).filter(Boolean) || []);
+        setAllOfficers(officers?.filter(o => o.id !== profile.id) || []);
+      }
     } catch (e) {
       console.error("Fetch error:", e);
     } finally {
-      setLoading(false);
+      if (isMounted) setLoading(false);
     }
-  };
+  }, [profile?.id]);
 
-  useEffect(() => { fetchData(); }, [profile]);
+  useEffect(() => { 
+    let isMounted = true;
+    fetchData(isMounted); 
+    return () => { isMounted = false; };
+  }, [fetchData]);
 
   const handleAdd = async () => {
     if (!newNote.title.trim() || !newNote.content.trim()) return;
@@ -73,7 +78,7 @@ const NotesPage = () => {
         setIsAdding(false);
         setNewNote({ title: "", content: "" });
         setTempAttachments([]);
-        fetchData();
+        fetchData(true);
     }
     setSaving(false);
   };
@@ -86,7 +91,7 @@ const NotesPage = () => {
     else {
         toast.success("Zapisano zmiany.");
         setEditingNote(null);
-        fetchData();
+        fetchData(true);
     }
     setSaving(false);
   };
@@ -98,7 +103,7 @@ const NotesPage = () => {
     if (error) toast.error("Błąd usuwania.");
     else {
         toast.success("Notatka usunięta.");
-        fetchData();
+        fetchData(true);
     }
     setNoteToDelete(null);
     setSaving(false);
@@ -184,6 +189,7 @@ const NotesPage = () => {
         </div>
       )}
 
+      {/* Dialogs and Alerts (Delete, Share, Edit) without changes as they don't have effects */}
       <AlertDialog open={!!noteToDelete} onOpenChange={() => setNoteToDelete(null)}>
         <AlertDialogContent className="bg-lapd-darker border-2 border-red-600 text-white">
           <AlertDialogHeader>
