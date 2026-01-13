@@ -5,12 +5,17 @@ import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { saveAttachmentMetadata, AttachmentMetadata } from "@/utils/attachments";
 import { compressImage } from "@/utils/imageCompression";
+import { supabase } from "@/lib/supabase";
+import { v4 as uuidv4 } from 'uuid';
 
 interface UploadOptions {
     reportId?: string;
     noteId?: string;
     chatId?: string;
 }
+
+// Używamy stałej nazwy bucketu, zakładając, że jest to 'attachments'
+const BUCKET_NAME = "attachments"; 
 
 export const useFileUpload = () => {
     const { profile } = useAuth();
@@ -29,36 +34,33 @@ export const useFileUpload = () => {
             const fileToUpload = await compressImage(file, 0.7);
             setProgress(30);
 
-            // 2. Pobierz Signed URL z Twojego API (Zakładamy istnienie endpointu)
-            const response = await fetch("/api/files/create-upload-url", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    fileName: fileToUpload.name,
-                    fileType: fileToUpload.type,
-                    fileSize: fileToUpload.size,
-                    ownerId: profile.id
-                }),
-            });
+            const fileExtension = fileToUpload.name.split('.').pop();
+            const filePath = `${profile.id}/${uuidv4()}.${fileExtension}`;
 
-            if (!response.ok) throw new Error("Błąd generowania URL do uploadu.");
+            // 2. Upload bezpośrednio do Supabase Storage
+            const { data: uploadData, error: uploadError } = await supabase.storage
+                .from(BUCKET_NAME)
+                .upload(filePath, fileToUpload, {
+                    cacheControl: '3600',
+                    upsert: false,
+                    contentType: fileToUpload.type,
+                    // Możemy użyć onUploadProgress, ale Supabase nie zawsze go wspiera w React
+                });
 
-            const { uploadUrl, fileUrl, headers } = await response.json();
-            setProgress(50);
+            if (uploadError) {
+                throw new Error("Błąd przesyłania do Supabase Storage: " + uploadError.message);
+            }
+            
+            // 3. Pobierz publiczny URL
+            const { data: publicUrlData } = supabase.storage
+                .from(BUCKET_NAME)
+                .getPublicUrl(filePath);
 
-            // 3. Upload bezpośrednio do R2
-            const formData = new FormData();
-            Object.entries(headers).forEach(([key, value]) => {
-                formData.append(key, value as string);
-            });
-            formData.append('file', fileToUpload);
-
-            const uploadResponse = await fetch(uploadUrl, {
-                method: 'POST',
-                body: formData,
-            });
-
-            if (!uploadResponse.ok) throw new Error("Błąd przesyłania do storage.");
+            if (!publicUrlData.publicUrl) {
+                throw new Error("Nie udało się uzyskać publicznego URL.");
+            }
+            
+            const fileUrl = publicUrlData.publicUrl;
             setProgress(80);
 
             // 4. Zapisz metadane w Supabase
@@ -81,6 +83,7 @@ export const useFileUpload = () => {
             return null;
         } finally {
             setIsUploading(false);
+            setProgress(0);
         }
     }, [profile]);
 
