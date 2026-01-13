@@ -19,7 +19,6 @@ import CreateReportPage from "./pages/CreateReportPage";
 import PersonnelPage from "./pages/PersonnelPage";
 import ChatsPage from "./pages/ChatsPage";
 import { AuthProvider, ProtectedRoute } from "./contexts/AuthContext";
-import { supabase } from "@/lib/supabase";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -37,7 +36,12 @@ const App = () => {
       <TooltipProvider>
         <Toaster />
         <Sonner position="bottom-left" />
-        <BrowserRouter>
+        <BrowserRouter 
+          future={{
+            v7_startTransition: true,
+            v7_relativeSplatPath: true,
+          }}
+        >
           <AuthProvider>
             <Routes>
               <Route path="/login" element={<LoginPage />} />
