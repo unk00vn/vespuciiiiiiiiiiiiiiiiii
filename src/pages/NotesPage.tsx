@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/componen
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { PlusCircle, Loader2, Edit, RefreshCcw, AlertCircle, Database, Paperclip, Save, Share2, Eye, UserPlus, ShieldCheck, Trash2, X } from "lucide-react";
+import { PlusCircle, Loader2, Edit, RefreshCcw, AlertCircle, Database, Paperclip, Save, Share2, Eye, UserPlus, ShieldCheck, Trash2, X, AlertTriangle } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
@@ -15,6 +15,16 @@ import { FileUploadWidget } from "@/components/FileUploadWidget";
 import { AttachmentList } from "@/components/AttachmentList";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const NotesPage = () => {
   const { profile } = useAuth();
@@ -28,6 +38,7 @@ const NotesPage = () => {
   
   const [editingNote, setEditingNote] = useState<any | null>(null);
   const [sharingNote, setSharingNote] = useState<any | null>(null);
+  const [noteToDelete, setNoteToDelete] = useState<any | null>(null);
   const [saving, setSaving] = useState(false);
 
   const fetchData = async () => {
@@ -36,7 +47,6 @@ const NotesPage = () => {
     try {
       const { data: myNotes } = await supabase.from("notes").select(`*, attachments(*)`).eq("author_id", profile.id).order("created_at", { ascending: false });
       
-      // Bezpieczne pobieranie udostępnionych notatek
       const { data: shared, error: sharedError } = await supabase.from("note_shares").select(`note_id, can_edit, notes(*, attachments(*))`).eq("profile_id", profile.id);
       
       if (sharedError) {
@@ -87,14 +97,17 @@ const NotesPage = () => {
     setSaving(false);
   };
 
-  const handleDelete = async (noteId: number) => {
-    if (!confirm("Czy na pewno chcesz usunąć tę notatkę?")) return;
-    const { error } = await supabase.from("notes").delete().eq("id", noteId);
+  const handleDelete = async () => {
+    if (!noteToDelete) return;
+    setSaving(true);
+    const { error } = await supabase.from("notes").delete().eq("id", noteToDelete.id);
     if (error) toast.error("Błąd usuwania: " + error.message);
     else {
-        toast.success("Notatka usunięta.");
+        toast.success("Notatka została trwale usunięta.");
         fetchData();
     }
+    setNoteToDelete(null);
+    setSaving(false);
   };
 
   const handleShare = async (officerId: string, canEdit: boolean) => {
@@ -107,9 +120,9 @@ const NotesPage = () => {
 
     if (error) {
         console.error("Supabase Share Error:", error);
-        toast.error(`Błąd bazy: ${error.message}. Upewnij się, że tabela note_shares istnieje w SQL Editor.`);
+        toast.error(`Błąd bazy: ${error.message}`);
     } else {
-        toast.success(`Uprawnienia (${canEdit ? 'Edycja' : 'Podgląd'}) nadane.`);
+        toast.success(`Uprawnienia nadane.`);
     }
   };
 
@@ -153,7 +166,7 @@ const NotesPage = () => {
                                         <Button variant="ghost" size="icon" className="h-7 w-7 text-lapd-gold hover:bg-lapd-gold/20" onClick={() => setSharingNote(n)}>
                                             <Share2 className="h-4 w-4" />
                                         </Button>
-                                        <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500 hover:bg-red-500/20" onClick={() => handleDelete(n.id)}>
+                                        <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500 hover:bg-red-500/20" onClick={() => setNoteToDelete(n)}>
                                             <Trash2 className="h-4 w-4" />
                                         </Button>
                                     </>
@@ -181,6 +194,33 @@ const NotesPage = () => {
         </div>
       )}
 
+      {/* OKNO POTWIERDZENIA USUNIĘCIA */}
+      <AlertDialog open={!!noteToDelete} onOpenChange={() => setNoteToDelete(null)}>
+        <AlertDialogContent className="bg-lapd-darker border-2 border-red-600 text-white">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-red-600 font-black uppercase flex items-center">
+              <AlertTriangle className="mr-2 h-6 w-6" /> POTWIERDŹ USUNIĘCIE DANYCH
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-slate-300 text-sm">
+              Czy na pewno chcesz usunąć wpis <span className="text-white font-bold">"{noteToDelete?.title}"</span>? 
+              Ta operacja jest nieodwracalna i trwale usunie notatkę z serwerów LSPD.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-2">
+            <AlertDialogCancel className="bg-white/10 text-white border-none hover:bg-white/20 font-bold">ANULUJ</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleDelete} 
+              className="bg-red-600 hover:bg-red-700 text-white font-black"
+              disabled={saving}
+            >
+              {saving ? <Loader2 className="animate-spin mr-2" /> : <Trash2 className="h-4 w-4 mr-2" />} 
+              POTWIERDZAM USUNIĘCIE
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* DIALOG UDOSTĘPNIANIA */}
       <Dialog open={!!sharingNote} onOpenChange={() => setSharingNote(null)}>
         <DialogContent className="bg-[#0A1A2F] border-2 border-lapd-gold text-white max-w-md">
             <DialogHeader><DialogTitle className="uppercase font-black text-lapd-gold tracking-tighter">Zarządzanie Dostępem Operacyjnym</DialogTitle></DialogHeader>
@@ -208,6 +248,7 @@ const NotesPage = () => {
         </DialogContent>
       </Dialog>
 
+      {/* DIALOG EDYCJI */}
       <Dialog open={!!editingNote} onOpenChange={() => setEditingNote(null)}>
         <DialogContent className="bg-lapd-darker border-lapd-gold text-white max-w-2xl">
             <DialogHeader><DialogTitle className="uppercase font-black text-lapd-gold">Edycja Wpisu</DialogTitle></DialogHeader>
