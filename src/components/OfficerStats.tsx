@@ -2,13 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { 
-  FileText, 
-  Send,
-  LogIn,
-  Loader2,
-  TrendingUp
-} from "lucide-react";
+import { FileText, Send, LogIn, Loader2, TrendingUp } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -28,11 +22,15 @@ export const OfficerStats = () => {
         const { count: s } = await supabase.from("reports").select("*", { count: 'exact', head: true }).eq("author_id", profile.id);
         const { count: r } = await supabase.from("reports").select("*", { count: 'exact', head: true }).eq("recipient_id", profile.id);
         setStatsData({ reportsSent: s || 0, reportsReceived: r || 0, loginsCount: 24, loading: false });
-      } catch (e) { setStatsData(prev => ({ ...prev, loading: false })); }
+      } catch (e) { 
+        console.error("Stats fetch error:", e);
+        setStatsData(prev => ({ ...prev, loading: false })); 
+      }
     };
     fetchOfficerStats();
   }, [profile]);
 
+  // ... (reszta komponentu bez zmian)
   const stats = [
     { label: "RAPORTY WYSŁANE", value: statsData.reportsSent, icon: <Send className="h-4 w-4" /> },
     { label: "RAPORTY ODEBRANE", value: statsData.reportsReceived, icon: <FileText className="h-4 w-4" /> },

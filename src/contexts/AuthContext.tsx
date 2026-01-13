@@ -27,9 +27,9 @@ interface AuthContextType {
   profile: UserProfile | null;
   loading: boolean;
   error: string | null;
-  signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
-  signUp: (email: string, password: string, badgeNumber: string) => Promise<{ error: Error | null }>;
-  signOut: () => Promise<{ error: Error | null }>;
+  signIn: (email: string, password: string) => Promise<{ error: any }>;
+  signUp: (email: string, password: string, badgeNumber: string) => Promise<{ error: any }>;
+  signOut: () => Promise<{ error: any }>;
   fetchUserProfile: (userId: string) => Promise<UserProfile | null>;
 }
 
@@ -71,110 +71,97 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         divisions: divisions as any,
       };
     } catch (e) {
-      console.error("Error fetching profile:", e);
+      console.error("[Auth] Profile fetch error:", e);
       return null;
     }
   };
 
   useEffect(() => {
     let isMounted = true;
-    
-    // Zwiększamy timeout dla wolniejszych połączeń produkcyjnych
-    const timeout = setTimeout(() => {
-      if (isMounted && loading) {
-        console.error("Auth init timeout triggered");
-        setLoading(false);
-        setError("Auth initialization timed out.");
-      }
-    }, 15000);
 
-    const initializeAuth = async () => {
+    // Główna funkcja inicjalizująca - pobiera sesję raz przy starcie
+    const initSession = async () => {
       try {
         const { data: { session: initialSession }, error: sessionError } = await supabase.auth.getSession();
         
         if (sessionError) throw sessionError;
-        if (!isMounted) return;
-        
-        setSession(initialSession);
-        setUser(initialSession?.user || null);
-        
-        if (initialSession?.user) {
-          const userProfile = await fetchUserProfile(initialSession.user.id);
-          if (isMounted) setProfile(userProfile);
+
+        if (isMounted) {
+          setSession(initialSession);
+          setUser(initialSession?.user || null);
+          
+          if (initialSession?.user) {
+            const userProfile = await fetchUserProfile(initialSession.user.id);
+            if (isMounted) setProfile(userProfile);
+          }
         }
       } catch (err: any) {
-        console.error("Auth init error:", err);
-        if (isMounted) setError(err.message || "Failed to initialize authentication");
+        console.error("[Auth] Initialization error:", err);
+        if (isMounted) setError(err.message);
       } finally {
-        if (isMounted) {
-          setLoading(false);
-          clearTimeout(timeout);
-        }
+        if (isMounted) setLoading(false);
       }
     };
 
-    initializeAuth();
+    initSession();
 
-    const { data: authListener } = supabase.auth.onAuthStateChange(async (_event, currentSession) => {
-      if (!isMounted) return;
-      setSession(currentSession);
-      setUser(currentSession?.user || null);
-      if (currentSession?.user) {
-        const userProfile = await fetchUserProfile(currentSession.user.id);
-        if (isMounted) setProfile(userProfile);
-      } else {
-        if (isMounted) setProfile(null);
+    // Słuchacz zmian stanu autoryzacji (Login/Logout/Token Refresh)
+    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, currentSession) => {
+      console.log(`[Auth] Event: ${event}`);
+      
+      if (isMounted) {
+        setSession(currentSession);
+        setUser(currentSession?.user || null);
+        
+        if (currentSession?.user) {
+          const userProfile = await fetchUserProfile(currentSession.user.id);
+          if (isMounted) setProfile(userProfile);
+        } else {
+          if (isMounted) setProfile(null);
+        }
       }
     });
 
     return () => {
       isMounted = false;
-      clearTimeout(timeout);
       authListener.subscription.unsubscribe();
     };
   }, []);
 
   const signIn = async (email: string, password: string) => {
-    setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) {
-      toast.error(error.message);
-      setLoading(false);
-      return { error };
-    }
-    return { error: null };
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) toast.error(error.message);
+    return { error };
   };
 
   const signUp = async (email: string, password: string, badgeNumber: string) => {
-    setLoading(true);
     const { data, error } = await supabase.auth.signUp({ email, password });
     if (error) {
       toast.error(error.message);
-      setLoading(false);
       return { error };
     }
 
+    // Dodanie profilu bezpośrednio po rejestracji (Fallback dla triggera DB)
     const { data: roleData } = await supabase.from("roles").select("id").eq("name", "Officer").single();
-    await supabase.from("profiles").insert({
+    await supabase.from("profiles").upsert({
       id: data.user?.id,
       email,
       badge_number: badgeNumber,
-      role_id: roleData?.id,
+      role_id: roleData?.id || 1,
       status: "pending"
     });
 
     toast.info("Account created. Awaiting approval.");
-    setLoading(false);
     return { error: null };
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    const { error } = await supabase.auth.signOut();
     setProfile(null);
     setUser(null);
     setSession(null);
     navigate("/login");
-    return { error: null };
+    return { error };
   };
 
   return (
@@ -191,14 +178,30 @@ export const useAuth = () => {
 };
 
 export const ProtectedRoute = ({ children, allowedRoles }: { children: ReactNode; allowedRoles?: UserRole[] }) => {
-  const { user, profile, loading, error } = useAuth();
+  const { user, profile, loading } = useAuth();
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center bg-lapd-navy text-lapd-gold">LOADING...</div>;
-  if (error) return <div className="min-h-screen flex items-center justify-center bg-lapd-navy text-red-500">{error}</div>;
-  if (!user) return <Navigate to="/login" />;
-  if (profile?.status === "pending") return <div className="min-h-screen flex items-center justify-center bg-lapd-navy text-white p-4">Account pending approval.</div>;
-  if (!profile || profile.status === "rejected") return <Navigate to="/login" />;
-  if (allowedRoles && !allowedRoles.includes(profile.role_name)) return <Navigate to="/" />;
+  if (loading) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-lapd-navy text-lapd-gold font-mono">
+        <div className="h-10 w-10 border-t-2 border-lapd-gold animate-spin rounded-full mb-4"></div>
+        <p className="animate-pulse">CONNECTING TO LSPD TERMINAL...</p>
+      </div>
+    );
+  }
+
+  if (!user) return <Navigate to="/login" replace />;
+  if (profile?.status === "pending") {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-lapd-navy text-white p-6 text-center">
+        <h2 className="text-lapd-gold font-black text-2xl mb-4">ACCESS RESTRICTED</h2>
+        <p className="text-slate-300">Your account is currently pending approval by High Command.</p>
+        <Button onClick={() => window.location.reload()} className="mt-8 bg-lapd-gold text-lapd-navy font-bold">RE-CHECK STATUS</Button>
+      </div>
+    );
+  }
+  
+  if (!profile || profile.status === "rejected") return <Navigate to="/login" replace />;
+  if (allowedRoles && !allowedRoles.includes(profile.role_name)) return <Navigate to="/" replace />;
 
   return <>{children}</>;
 };
