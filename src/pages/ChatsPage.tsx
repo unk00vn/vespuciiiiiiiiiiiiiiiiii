@@ -1,12 +1,12 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Card, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useAuth } from "@/contexts/AuthContext";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/integrations/supabase/client";
 import { MessageSquare, Send, Users, User, Plus, Loader2, Image as ImageIcon, Search, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { AttachmentList } from "@/components/AttachmentList";
@@ -65,7 +65,6 @@ export const ChatsPage = () => {
     if (!activeChat) return;
     fetchMessages(activeChat.id);
 
-    // Subskrypcja Realtime działająca tylko gdy użytkownik jest w tej zakładce
     const channel = supabase.channel(`chat_${activeChat.id}`)
       .on('postgres_changes', { 
         event: 'INSERT', 
@@ -73,7 +72,6 @@ export const ChatsPage = () => {
         table: 'chat_messages', 
         filter: `chat_id=eq.${activeChat.id}` 
       }, (p) => {
-        // Dodajemy nową wiadomość tylko jeśli okno jest aktywne
         if (document.visibilityState === 'visible') {
           setMessages(prev => [...prev, p.new]);
           setTimeout(scrollToBottom, 50);
@@ -147,8 +145,6 @@ export const ChatsPage = () => {
         <ScrollArea className="flex-1">
           {loading ? (
               <div className="flex justify-center p-12"><Loader2 className="animate-spin text-lapd-gold" /></div>
-          ) : chats.length === 0 ? (
-              <div className="p-12 text-center text-[10px] text-slate-600 uppercase font-black italic">Brak połączeń</div>
           ) : (
             chats.map(c => (
                 <div key={c.id} onClick={() => setActiveChat(c)} className={cn("p-4 cursor-pointer hover:bg-white/5 border-b border-white/5 transition-all group", activeChat?.id === c.id ? 'bg-lapd-gold/5 border-l-4 border-l-lapd-gold' : 'border-l-4 border-l-transparent')}>
@@ -226,10 +222,7 @@ export const ChatsPage = () => {
           </>
         ) : (
           <div className="flex-1 flex flex-col items-center justify-center opacity-20">
-            <div className="relative">
-                <MessageSquare className="h-24 w-24 mb-4 text-lapd-gold" />
-                <div className="absolute inset-0 animate-ping opacity-20"><MessageSquare className="h-24 w-24 text-lapd-gold" /></div>
-            </div>
+            <MessageSquare className="h-24 w-24 mb-4 text-lapd-gold" />
             <p className="uppercase font-black tracking-[0.5em] text-xs">Oczekiwanie na sygnał...</p>
           </div>
         )}
@@ -264,7 +257,7 @@ const NewChatDialog = ({ officers, onCreated }: { officers: any[], onCreated: (n
                     </div>
                     <div className="space-y-2">
                         <Label className="uppercase text-[10px] font-black text-slate-400 tracking-widest">Wybierz Uczestników</Label>
-                        <div className="relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3 w-3 text-slate-500" /><Input placeholder="Szukaj po nazwisku lub odznace..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9 h-9 bg-black/20 border-white/10 text-xs" /></div>
+                        <div className="relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3 w-3 text-slate-500" /><Input placeholder="Szukaj..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9 h-9 bg-black/20 border-white/10 text-xs" /></div>
                         <ScrollArea className="h-60 border border-white/10 rounded mt-2 p-1 bg-black/20">
                             {filteredOfficers.map(o => (
                                 <div key={o.id} className="flex items-center gap-3 p-2.5 hover:bg-lapd-gold/10 rounded transition-colors group cursor-pointer" onClick={() => setSelected(prev => selected.includes(o.id) ? prev.filter(i => i !== o.id) : [...prev, o.id])}>
@@ -276,7 +269,7 @@ const NewChatDialog = ({ officers, onCreated }: { officers: any[], onCreated: (n
                     </div>
                 </div>
                 <DialogFooter>
-                    <Button onClick={() => { onCreated(name, selected); setOpen(false); setSelected([]); setName(""); }} className="bg-lapd-gold text-lapd-navy font-black w-full uppercase h-12 shadow-lg hover:bg-yellow-500">UTWÓRZ POŁĄCZENIE OPERACYJNE</Button>
+                    <Button onClick={() => { onCreated(name, selected); setOpen(false); setSelected([]); setName(""); }} className="bg-lapd-gold text-lapd-navy font-black w-full uppercase h-12 shadow-lg hover:bg-yellow-500">UTWÓRZ POŁĄCZENIE</Button>
                 </DialogFooter>
             </DialogContent>
         </Dialog>

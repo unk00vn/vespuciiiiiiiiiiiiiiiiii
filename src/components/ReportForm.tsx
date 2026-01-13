@@ -8,8 +8,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { FileText, MapPin, Clock, Send, Paperclip, Loader2, Users, UserPlus } from "lucide-react";
-import { supabase } from "@/lib/supabase";
+import { FileText, Send, Paperclip, Loader2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { FileUploadWidget } from "./FileUploadWidget";
@@ -62,7 +62,6 @@ export const ReportForm = () => {
 
     setLoading(true);
     
-    // Zapisz Raport z nowymi polami
     const { data: report, error } = await supabase.from("reports").insert({
       author_id: profile.id,
       recipient_id: formData.recipientId,
@@ -174,7 +173,6 @@ export const ReportForm = () => {
       </CardContent>
       
       <CardFooter className="bg-lapd-navy/50 p-6 flex justify-end gap-4 border-t border-lapd-gold/20">
-        <Button variant="ghost" onClick={() => navigate("/reports")} className="text-slate-400 hover:text-white">ANULUJ</Button>
         <Button onClick={handleSubmit} disabled={loading} className="bg-lapd-gold text-lapd-navy font-black uppercase px-8 shadow-lg hover:bg-yellow-500">
           {loading ? <Loader2 className="animate-spin mr-2" /> : <Send className="h-4 w-4 mr-2" />} ARCHIWIZUJ RAPORT
         </Button>

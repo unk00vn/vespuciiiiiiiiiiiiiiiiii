@@ -1,14 +1,14 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import React, { useState } from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
-import { Paperclip, Lock, Users, Trash2, FileText, ClipboardList, Check, Loader2, ShieldAlert } from "lucide-react";
-import { supabase } from "@/lib/supabase";
+import { Paperclip, Trash2, FileText, ClipboardList, Check, Loader2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 
@@ -34,7 +34,6 @@ export const OfficerDossier = ({ targetOfficer }: { targetOfficer: any }) => {
     const { data: notes } = await supabase.from("notes").select("*").eq("author_id", profile?.id);
     const { data: reports } = await supabase.from("reports").select("*").eq("author_id", profile?.id);
     
-    // Filtrowanie: usuwamy dokumenty, które już są przypięte (ich ID są w pins)
     const pinnedNoteIds = pinsData?.map(p => p.note_id).filter(Boolean) || [];
     const pinnedReportIds = pinsData?.map(p => p.report_id).filter(Boolean) || [];
 

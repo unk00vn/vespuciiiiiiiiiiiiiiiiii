@@ -5,8 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/componen
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { PlusCircle, Loader2, Edit, RefreshCcw, AlertCircle, Database, Paperclip, Save, Share2, Eye, UserPlus, ShieldCheck, Trash2, X, AlertTriangle } from "lucide-react";
-import { supabase } from "@/lib/supabase";
+import { PlusCircle, Loader2, Edit, Share2, Eye, ShieldCheck, Trash2, X, AlertTriangle, Save } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -46,13 +46,7 @@ const NotesPage = () => {
     setLoading(true);
     try {
       const { data: myNotes } = await supabase.from("notes").select(`*, attachments(*)`).eq("author_id", profile.id).order("created_at", { ascending: false });
-      
-      const { data: shared, error: sharedError } = await supabase.from("note_shares").select(`note_id, can_edit, notes(*, attachments(*))`).eq("profile_id", profile.id);
-      
-      if (sharedError) {
-        console.warn("Note shares table might be missing:", sharedError.message);
-      }
-
+      const { data: shared } = await supabase.from("note_shares").select(`note_id, can_edit, notes(*, attachments(*))`).eq("profile_id", profile.id);
       const { data: officers } = await supabase.from("profiles").select("*").eq("status", "approved");
 
       setNotes(myNotes || []);
@@ -101,9 +95,9 @@ const NotesPage = () => {
     if (!noteToDelete) return;
     setSaving(true);
     const { error } = await supabase.from("notes").delete().eq("id", noteToDelete.id);
-    if (error) toast.error("Błąd usuwania: " + error.message);
+    if (error) toast.error("Błąd usuwania.");
     else {
-        toast.success("Notatka została trwale usunięta.");
+        toast.success("Notatka usunięta.");
         fetchData();
     }
     setNoteToDelete(null);
@@ -116,14 +110,10 @@ const NotesPage = () => {
         note_id: sharingNote.id,
         profile_id: officerId,
         can_edit: canEdit
-    }, { onConflict: 'note_id,profile_id' });
+    });
 
-    if (error) {
-        console.error("Supabase Share Error:", error);
-        toast.error(`Błąd bazy: ${error.message}`);
-    } else {
-        toast.success(`Uprawnienia nadane.`);
-    }
+    if (error) toast.error("Błąd bazy.");
+    else toast.success(`Uprawnienia nadane.`);
   };
 
   return (
@@ -194,7 +184,6 @@ const NotesPage = () => {
         </div>
       )}
 
-      {/* OKNO POTWIERDZENIA USUNIĘCIA */}
       <AlertDialog open={!!noteToDelete} onOpenChange={() => setNoteToDelete(null)}>
         <AlertDialogContent className="bg-lapd-darker border-2 border-red-600 text-white">
           <AlertDialogHeader>
@@ -202,36 +191,26 @@ const NotesPage = () => {
               <AlertTriangle className="mr-2 h-6 w-6" /> POTWIERDŹ USUNIĘCIE DANYCH
             </AlertDialogTitle>
             <AlertDialogDescription className="text-slate-300 text-sm">
-              Czy na pewno chcesz usunąć wpis <span className="text-white font-bold">"{noteToDelete?.title}"</span>? 
-              Ta operacja jest nieodwracalna i trwale usunie notatkę z serwerów LSPD.
+              Czy na pewno chcesz usunąć ten wpis? Ta operacja jest nieodwracalna.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter className="gap-2">
+          <AlertDialogFooter>
             <AlertDialogCancel className="bg-white/10 text-white border-none hover:bg-white/20 font-bold">ANULUJ</AlertDialogCancel>
-            <AlertDialogAction 
-              onClick={handleDelete} 
-              className="bg-red-600 hover:bg-red-700 text-white font-black"
-              disabled={saving}
-            >
-              {saving ? <Loader2 className="animate-spin mr-2" /> : <Trash2 className="h-4 w-4 mr-2" />} 
-              POTWIERDZAM USUNIĘCIE
-            </AlertDialogAction>
+            <AlertDialogAction onClick={handleDelete} className="bg-red-600 hover:bg-red-700 text-white font-black">USUŃ</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* DIALOG UDOSTĘPNIANIA */}
       <Dialog open={!!sharingNote} onOpenChange={() => setSharingNote(null)}>
         <DialogContent className="bg-[#0A1A2F] border-2 border-lapd-gold text-white max-w-md">
             <DialogHeader><DialogTitle className="uppercase font-black text-lapd-gold tracking-tighter">Zarządzanie Dostępem Operacyjnym</DialogTitle></DialogHeader>
-            <p className="text-[10px] text-slate-400 uppercase font-bold mb-4">Wybierz funkcjonariusza i nadaj uprawnienia do notatki.</p>
             <ScrollArea className="h-[400px] pr-4">
                 <div className="space-y-2">
                     {allOfficers.map(off => (
                         <div key={off.id} className="flex items-center justify-between p-3 border border-white/5 rounded bg-black/40 hover:border-lapd-gold/30 transition-colors">
                             <div className="min-w-0">
                                 <p className="text-xs font-bold text-white truncate">#{off.badge_number} {off.last_name}</p>
-                                <p className="text-[9px] text-slate-500 uppercase">{off.role_name || "OFFICER"}</p>
+                                <p className="text-[9px] text-slate-500 uppercase">{off.role_name}</p>
                             </div>
                             <div className="flex gap-1">
                                 <Button size="sm" variant="ghost" className="h-8 px-2 text-[9px] font-black uppercase text-blue-400 hover:bg-blue-500/10" onClick={() => handleShare(off.id, false)}>
@@ -248,7 +227,6 @@ const NotesPage = () => {
         </DialogContent>
       </Dialog>
 
-      {/* DIALOG EDYCJI */}
       <Dialog open={!!editingNote} onOpenChange={() => setEditingNote(null)}>
         <DialogContent className="bg-lapd-darker border-lapd-gold text-white max-w-2xl">
             <DialogHeader><DialogTitle className="uppercase font-black text-lapd-gold">Edycja Wpisu</DialogTitle></DialogHeader>

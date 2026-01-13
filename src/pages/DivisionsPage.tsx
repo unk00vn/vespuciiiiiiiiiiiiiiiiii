@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { PlusCircle, Users, Edit, Loader2, Save } from "lucide-react";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import {
@@ -107,7 +107,6 @@ const DivisionsPage = () => {
       await fetchDivisions();
     } catch (error: any) {
       toast.error("Błąd zapisu: " + error.message);
-      console.error("Save error:", error);
     } finally {
       setSaving(false);
     }

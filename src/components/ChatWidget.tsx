@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { MessageCircle, Send, X, Loader2, Maximize2, Minimize2, WifiOff } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -15,7 +15,6 @@ export const ChatWidget = () => {
   const { profile } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [isWide, setIsWide] = useState(false);
-  const [position] = useState<'bottom-right' | 'bottom-left'>('bottom-right');
   const [messages, setMessages] = useState<any[]>([]);
   const [newMessage, setNewMessage] = useState("");
   const [isSending, setIsSending] = useState(false);
@@ -57,19 +56,9 @@ export const ChatWidget = () => {
     if (profile && isOpen) {
       fetchHistory();
 
-      // Subskrypcja Realtime działająca tylko gdy karta jest aktywna
-      const handleVisibilityChange = () => {
-        if (document.visibilityState === 'visible') {
-          fetchHistory();
-        }
-      };
-
-      document.addEventListener("visibilitychange", handleVisibilityChange);
-
       const channel = supabase
         .channel("public:chat_messages")
         .on("postgres_changes", { event: "INSERT", schema: "public", table: "chat_messages" }, (payload) => {
-          // Dodajemy wiadomość tylko jeśli karta jest aktywna
           if (document.visibilityState === 'visible') {
             setMessages((prev) => [...prev, payload.new]);
             setTimeout(scrollToBottom, 50);
@@ -79,14 +68,13 @@ export const ChatWidget = () => {
 
       return () => { 
         supabase.removeChannel(channel); 
-        document.removeEventListener("visibilitychange", handleVisibilityChange);
       };
     }
   }, [profile, isOpen]);
 
   useEffect(() => {
     if (isOpen) setTimeout(scrollToBottom, 100);
-  }, [isOpen, messages.length, isWide, position]);
+  }, [isOpen, messages.length, isWide]);
 
   const handleSendMessage = async () => {
     if (newMessage.trim() === "" || !profile || isSending) return;
@@ -107,10 +95,7 @@ export const ChatWidget = () => {
   if (!isOpen) {
     return (
       <Button
-        className={cn(
-          "fixed bottom-6 rounded-full h-14 w-14 bg-lapd-gold text-lapd-navy hover:bg-yellow-600 shadow-xl z-50",
-          position === 'bottom-right' ? 'right-6' : 'left-6'
-        )}
+        className="fixed bottom-6 right-6 rounded-full h-14 w-14 bg-lapd-gold text-lapd-navy hover:bg-yellow-600 shadow-xl z-50"
         onClick={() => setIsOpen(true)}
       >
         <MessageCircle className="h-6 w-6" />
@@ -120,8 +105,7 @@ export const ChatWidget = () => {
 
   return (
     <Card className={cn(
-      "fixed bottom-6 bg-lapd-darker border-2 border-lapd-gold shadow-2xl z-50 flex flex-col transition-all duration-300",
-      position === 'bottom-right' ? 'right-6' : 'left-6',
+      "fixed bottom-6 right-6 bg-lapd-darker border-2 border-lapd-gold shadow-2xl z-50 flex flex-col transition-all duration-300",
       isWide ? "w-[600px] h-[350px]" : "w-80 h-[500px]"
     )}>
       <CardHeader className="flex flex-row items-center justify-between p-3 bg-lapd-navy border-b border-lapd-gold/30">
@@ -146,11 +130,9 @@ export const ChatWidget = () => {
             ) : error ? (
                <div className="flex flex-col items-center justify-center py-20 text-red-500 text-center">
                   <WifiOff className="h-8 w-8 mb-2" />
-                  <p className="text-[10px] font-black uppercase">Brak połączenia z siecią</p>
-                  <Button variant="link" size="sm" onClick={fetchHistory} className="text-red-400 text-[10px] uppercase underline mt-2">Ponów próbę</Button>
+                  <p className="text-[10px] font-black uppercase">Brak połączenia</p>
+                  <Button variant="link" size="sm" onClick={fetchHistory} className="text-red-400 text-[10px] uppercase underline mt-2">Ponów</Button>
                </div>
-            ) : messages.length === 0 ? (
-               <div className="text-center py-20 text-slate-600 text-[10px] uppercase font-bold italic">Brak wiadomości na kanale.</div>
             ) : (
               messages.map((m) => (
                 <div key={m.id} className="border-l-2 border-lapd-gold/50 pl-3 py-1 bg-white/[0.02]">

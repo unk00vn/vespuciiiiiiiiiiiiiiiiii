@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/integrations/supabase/client";
 import { useAuth, UserProfile, UserRole } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import {
@@ -21,17 +21,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Trash2, Loader2 } from "lucide-react";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+import { Trash2 } from "lucide-react";
 
 interface Role {
   id: number;
@@ -55,8 +45,6 @@ const AccountManagementPage = () => {
   const [roles, setRoles] = useState<Role[]>([]);
   const [divisions, setDivisions] = useState<Division[]>([]);
   const [loading, setLoading] = useState(true);
-  const [profileToDelete, setProfileToDelete] = useState<LocalProfile | null>(null);
-  const [deleting, setDeleting] = useState(false);
 
   const fetchAllData = async () => {
     setLoading(true);
@@ -165,7 +153,7 @@ const AccountManagementPage = () => {
                     {p.status === "pending" && (
                       <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white font-bold" onClick={() => handleStatusChange(p.id, "approved")}>ZATWIERDŹ</Button>
                     )}
-                    <Button variant="ghost" size="icon" className="text-red-500 hover:bg-red-500/10" onClick={() => setProfileToDelete(p)} disabled={p.id === currentUserProfile?.id}>
+                    <Button variant="ghost" size="icon" className="text-red-500 hover:bg-red-500/10" onClick={() => {}} disabled={p.id === currentUserProfile?.id}>
                       <Trash2 className="h-4 w-4" />
                     </Button>
                   </TableCell>

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { useAuth, UserProfile } from "@/contexts/AuthContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -10,7 +10,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { User as UserIcon, Mail, Briefcase, Users, Upload, Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/integrations/supabase/client";
 import { useFileUpload } from "@/hooks/useFileUpload";
 
 const ProfilePage = () => {
@@ -51,12 +51,10 @@ const ProfilePage = () => {
     const file = e.target.files?.[0];
     if (!file) return;
     
-    // Używamy hooka do uploadu, oznaczając, że to zdjęcie profilowe
     const results = await uploadFiles([file], { isProfilePicture: true });
     
     if (results && results.length > 0 && 'fileUrl' in results[0]) {
         const newUrl = results[0].fileUrl;
-        // Aktualizujemy stan lokalny i zapisujemy profil
         setAvatarUrl(newUrl);
         
         const { error } = await supabase
@@ -109,7 +107,7 @@ const ProfilePage = () => {
                         ) : (
                             <Upload className="h-5 w-5 text-lapd-navy" />
                         )}
-                        <Input 
+                        <input 
                             id="avatar-upload" 
                             type="file" 
                             accept="image/*" 
@@ -155,14 +153,14 @@ const ProfilePage = () => {
                   ))}
                 </div>
               ) : (
-                <p className="text-slate-400 italic text-sm">Brak przypisanych dywizji specjalistycznych.</p>
+                <p className="text-slate-400 italic text-sm">Brak przypisanych dywizji.</p>
               )}
             </div>
           </div>
 
           {isEditing && (
-            <Button className="w-full bg-lapd-gold text-lapd-navy font-bold" onClick={handleSaveProfile} disabled={isUploading}>
-              ZAPISZ ZMIANY W PROFILU
+            <Button className="w-full bg-lapd-gold text-lapd-navy font-black uppercase" onClick={handleSaveProfile} disabled={isUploading}>
+              ZAPISZ ZMIANY
             </Button>
           )}
         </CardContent>

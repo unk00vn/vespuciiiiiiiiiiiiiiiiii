@@ -1,13 +1,13 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/integrations/supabase/client";
 import { useAuth, UserProfile } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Edit, Loader2, Shield, Paperclip } from "lucide-react";
+import { Edit, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
@@ -54,34 +54,21 @@ const PersonnelPage = () => {
     if (!editingUser) return;
     setSaving(true);
     
-    const { error: deleteError } = await supabase
-      .from("profile_divisions")
-      .delete()
-      .eq("profile_id", editingUser.id);
-
-    if (deleteError) {
-      toast.error("Błąd podczas czyszczenia dywizji: " + deleteError.message);
-      setSaving(false);
-      return;
-    }
+    await supabase.from("profile_divisions").delete().eq("profile_id", editingUser.id);
 
     if (selectedDivisions.length > 0) {
-      const inserts = selectedDivisions.map(divId => ({ 
-        profile_id: editingUser.id, 
-        division_id: divId 
-      }));
-
-      const { error: insertError } = await supabase.from("profile_divisions").insert(inserts);
-      if (insertError) toast.error("Błąd podczas zapisu dywizji.");
+      const inserts = selectedDivisions.map(divId => ({ profile_id: editingUser.id, division_id: divId }));
+      const { error } = await supabase.from("profile_divisions").insert(inserts);
+      if (error) toast.error("Błąd podczas zapisu dywizji.");
       else {
         toast.success("Dywizje zaktualizowane.");
         setEditingUser(null);
-        await fetchData();
+        fetchData();
       }
     } else {
       toast.success("Usunięto wszystkie dywizje.");
       setEditingUser(null);
-      await fetchData();
+      fetchData();
     }
     setSaving(false);
   };
@@ -130,7 +117,7 @@ const PersonnelPage = () => {
         </CardContent>
       </Card>
 
-      <Dialog open={!!editingUser} onOpenChange={() => !saving && setEditingUser(null)}>
+      <Dialog open={!!editingUser} onOpenChange={() => setEditingUser(null)}>
         <DialogContent className="border-lapd-gold bg-lapd-darker text-white">
           <DialogHeader><DialogTitle className="text-lapd-gold uppercase font-black">Edycja Dywizji</DialogTitle></DialogHeader>
           <div className="grid gap-4 py-4">
@@ -142,7 +129,7 @@ const PersonnelPage = () => {
             ))}
           </div>
           <DialogFooter>
-            <Button variant="outline" className="bg-white/10 text-white hover:bg-white/20" onClick={() => setEditingUser(null)} disabled={saving}>Anuluj</Button>
+            <Button variant="outline" className="bg-white/10 text-white hover:bg-white/20" onClick={() => setEditingUser(null)}>Anuluj</Button>
             <Button className="bg-lapd-gold text-lapd-navy font-bold" onClick={handleSaveDivisions} disabled={saving}>ZAPISZ</Button>
           </DialogFooter>
         </DialogContent>

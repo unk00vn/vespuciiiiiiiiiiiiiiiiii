@@ -1,13 +1,13 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { PlusCircle, Search, Loader2, Archive, ClipboardList, AlertCircle, RefreshCcw } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Input } from "@/components/ui/input";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -24,7 +24,6 @@ const ReportsPage = () => {
     setLoading(true);
     setError(false);
 
-    // Safety timeout: 7 seconds
     const safetyTimeout = setTimeout(() => {
       if (loading) {
         setLoading(false);
@@ -38,7 +37,7 @@ const ReportsPage = () => {
         .select(`*, author:profiles!author_id(first_name, last_name, badge_number), recipient:profiles!recipient_id(first_name, last_name, badge_number)`)
         .or(`author_id.eq.${profile.id},recipient_id.eq.${profile.id}`)
         .order("created_at", { ascending: false })
-        .limit(50); // Paginacja systemowa
+        .limit(50);
 
       if (sbError) throw sbError;
       setReports(data || []);
@@ -103,7 +102,7 @@ const ReportsPage = () => {
               <TableCell colSpan={5} className="text-center py-20">
                 <div className="flex flex-col items-center text-slate-500">
                    <Archive className="h-10 w-10 mb-2 opacity-20" />
-                   <p className="uppercase text-xs font-black tracking-widest">Brak raportów do wyświetlenia</p>
+                   <p className="uppercase text-xs font-black tracking-widest">Brak raportów</p>
                 </div>
               </TableCell>
             </TableRow>
@@ -118,17 +117,17 @@ const ReportsPage = () => {
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-lapd-gold/30 pb-6">
         <div>
           <h1 className="text-4xl font-black text-white uppercase tracking-tight">System Raportowy</h1>
-          <p className="text-slate-400 font-medium text-sm mt-1">Los Santos Police Department • Vespucci Division</p>
+          <p className="text-slate-400 font-medium text-sm mt-1">LSPD Vespucci</p>
         </div>
         <Button asChild className="bg-lapd-gold text-black font-black h-11 px-6 hover:bg-yellow-500">
-          <Link to="/reports/new"><PlusCircle className="mr-2 h-5 w-5" /> UTWÓRZYJ NOWY RAPORT</Link>
+          <Link to="/reports/new"><PlusCircle className="mr-2 h-5 w-5" /> NOWY RAPORT</Link>
         </Button>
       </div>
 
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 h-4 w-4" />
         <Input 
-          placeholder="Szukaj po tytule lub nazwisku..." 
+          placeholder="Szukaj..." 
           className="pl-10 h-12 bg-white/5 border-white/10 text-white placeholder:text-slate-500 focus:ring-1 focus:ring-lapd-gold"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
@@ -138,27 +137,26 @@ const ReportsPage = () => {
       {error ? (
         <div className="flex flex-col items-center justify-center py-20 bg-red-500/5 border border-red-500/20 rounded-lg">
           <AlertCircle className="h-12 w-12 text-red-500 mb-4" />
-          <p className="text-white font-bold uppercase">Błąd ładowania danych</p>
-          <p className="text-slate-400 text-xs mt-1">Serwer nie odpowiada. Sprawdź połączenie i spróbuj ponownie.</p>
+          <p className="text-white font-bold uppercase">Błąd danych</p>
           <Button onClick={fetchReports} className="mt-6 bg-red-600 hover:bg-red-700 text-white">
-            <RefreshCcw className="h-4 w-4 mr-2" /> PONÓW PRÓBĘ
+            <RefreshCcw className="h-4 w-4 mr-2" /> PONÓW
           </Button>
         </div>
       ) : (
         <Tabs defaultValue="active" className="w-full">
           <TabsList className="bg-white/5 p-1 mb-6 border border-white/10">
             <TabsTrigger value="active" className="data-[state=active]:bg-lapd-gold data-[state=active]:text-black text-slate-400 font-bold px-6">
-              <ClipboardList className="mr-2 h-4 w-4" /> AKTYWNE ({activeReports.length})
+              AKTYWNE ({activeReports.length})
             </TabsTrigger>
             <TabsTrigger value="archive" className="data-[state=active]:bg-lapd-gold data-[state=active]:text-black text-slate-400 font-bold px-6">
-              <Archive className="mr-2 h-4 w-4" /> ARCHIWUM ({archivedReports.length})
+              ARCHIWUM ({archivedReports.length})
             </TabsTrigger>
           </TabsList>
 
           {loading ? (
             <div className="flex flex-col items-center justify-center py-32">
                <Loader2 className="animate-spin text-lapd-gold h-10 w-10 mb-4" />
-               <p className="text-lapd-gold text-[10px] font-black uppercase tracking-widest">Pobieranie danych systemowych...</p>
+               <p className="text-lapd-gold text-[10px] font-black uppercase tracking-widest">Pobieranie...</p>
             </div>
           ) : (
             <>

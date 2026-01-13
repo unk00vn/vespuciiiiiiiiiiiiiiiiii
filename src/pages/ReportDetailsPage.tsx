@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,7 +12,6 @@ import {
   ArrowLeft, 
   Clock, 
   MapPin, 
-  User, 
   Shield, 
   CheckCircle2, 
   XCircle, 
@@ -34,7 +33,6 @@ const ReportDetailsPage = () => {
     if (!id) return;
     setLoading(true);
     
-    // Pobierz dane raportu
     const { data: reportData, error: reportError } = await supabase
       .from("reports")
       .select(`
@@ -51,7 +49,6 @@ const ReportDetailsPage = () => {
       return;
     }
 
-    // Pobierz załączniki
     const { data: attachmentsData } = await supabase
       .from("attachments")
       .select("*")
@@ -81,7 +78,6 @@ const ReportDetailsPage = () => {
       toast.success(`Status zmieniony na: ${newStatus}`);
       fetchData();
       
-      // Powiadom autora o zmianie statusu
       await supabase.from("notifications").insert({
         user_id: report.author_id,
         title: "Zmiana statusu raportu",
@@ -109,14 +105,12 @@ const ReportDetailsPage = () => {
             <ArrowLeft className="h-4 w-4 mr-2" /> POWRÓT
           </Link>
         </Button>
-        <div className="flex gap-2">
-            <Badge className={`text-xs font-black px-3 py-1 border-2 ${
-                report.status === "Zakończony" ? "border-green-500/50 bg-green-500/10 text-green-400" : 
-                report.status === "Odrzucony" ? "border-red-500/50 bg-red-500/10 text-red-400" : "border-amber-500/50 bg-amber-500/10 text-amber-400"
-            }`}>
-                {report.status.toUpperCase()}
-            </Badge>
-        </div>
+        <Badge className={`text-xs font-black px-3 py-1 border-2 ${
+            report.status === "Zakończony" ? "border-green-500/50 bg-green-500/10 text-green-400" : 
+            report.status === "Odrzucony" ? "border-red-500/50 bg-red-500/10 text-red-400" : "border-amber-500/50 bg-amber-500/10 text-amber-400"
+        }`}>
+            {report.status.toUpperCase()}
+        </Badge>
       </div>
 
       <Card className="bg-lapd-darker border-lapd-gold border-2 shadow-2xl overflow-hidden">

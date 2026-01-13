@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 
@@ -27,8 +27,6 @@ export const NotificationBell = () => {
 
   useEffect(() => {
     fetchNotifications();
-    // Realtime subskrypcja została usunięta zgodnie z wytycznymi.
-    // Dane aktualizują się tylko przy przeładowaniu strony.
   }, [profile]);
 
   const unreadCount = notifications.filter(n => !n.is_read).length;
@@ -42,10 +40,10 @@ export const NotificationBell = () => {
   const deleteNotification = async (id: string) => {
     const { error } = await supabase.from("notifications").delete().eq("id", id);
     if (error) {
-      toast.error("Błąd usuwania powiadomienia.");
+      toast.error("Błąd usuwania.");
     } else {
       setNotifications(prev => prev.filter(n => n.id !== id));
-      toast.success("Powiadomienie usunięte.");
+      toast.success("Usunięto.");
     }
   };
 

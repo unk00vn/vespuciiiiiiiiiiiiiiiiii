@@ -1,5 +1,4 @@
-import { supabase } from "@/lib/supabase";
-import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 export interface AttachmentMetadata {
     fileUrl: string;

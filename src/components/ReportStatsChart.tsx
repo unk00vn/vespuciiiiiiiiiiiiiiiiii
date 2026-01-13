@@ -3,10 +3,10 @@
 import React, { useEffect, useState } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
-import { FileText, CheckCircle, Clock, TrendingUp, Loader2 } from "lucide-react";
-import { supabase } from "@/lib/supabase";
+import { TrendingUp, Loader2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { format, subDays, isAfter } from "date-fns";
+import { format, subDays } from "date-fns";
 
 interface DailyReportStats {
   date: string;
@@ -25,19 +25,17 @@ export const ReportStatsChart = ({ profileId }: { profileId: string }) => {
       try {
         const thirtyDaysAgo = subDays(new Date(), 30);
         
-        // Pobieramy wszystkie raporty, które dotyczą tego profilu (autor lub adresat)
         const { data: reportsData, error } = await supabase
           .from("reports")
           .select("created_at, author_id, recipient_id, status")
           .or(`author_id.eq.${profileId},recipient_id.eq.${profileId}`)
-          .gte("created_at", thirtyDaysAgo.toISOString()) // Filtrujemy tylko ostatnie 30 dni
+          .gte("created_at", thirtyDaysAgo.toISOString())
           .order("created_at", { ascending: true });
 
         if (error) throw error;
 
         const dailyStatsMap = new Map<string, { Wysłane: number, Otrzymane: number, Zakończone: number }>();
         
-        // Inicjalizacja statystyk dla ostatnich 30 dni
         for (let i = 0; i < 30; i++) {
           const date = subDays(new Date(), 29 - i);
           const dateKey = format(date, 'dd/MM');
