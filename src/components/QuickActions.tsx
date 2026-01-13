@@ -18,7 +18,7 @@ import {
 export const QuickActions = () => {
   const actions = [
     { name: "Nowy Raport", icon: <FileText className="h-5 w-5" />, path: "/reports" },
-    { name: "Nowe Ogłoszenie", icon: <Bell className="h-5 w-5">, path: "/announcements" },
+    { name: "Nowe Ogłoszenie", icon: <Bell className="h-5 w-5" />, path: "/announcements" },
     { name: "Dodaj Notatkę", icon: <ClipboardList className="h-5 w-5" />, path: "/notes" },
     { name: "Nowa Wiadomość", icon: <MessageSquare className="h-5 w-5" />, path: "/chat" },
     { name: "Zarządzaj Kontem", icon: <ShieldCheck className="h-5 w-5" />, path: "/account-management" },
