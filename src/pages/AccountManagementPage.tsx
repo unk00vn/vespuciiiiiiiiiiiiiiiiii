@@ -44,7 +44,6 @@ interface Division {
   name: string;
 }
 
-// Definicja lokalnego typu profilu, który zawiera division_id i division_name (dla zarządzania główną dywizją)
 interface LocalProfile extends Omit<UserProfile, 'divisions'> {
   division_id?: number;
   division_name?: string;
@@ -61,323 +60,121 @@ const AccountManagementPage = () => {
 
   const fetchAllData = async () => {
     setLoading(true);
-    
-    // Funkcja sortująca statusy: pending (1), approved (2), rejected (3)
-    const statusOrder = (status: string) => {
-      if (status === "pending") return 1;
-      if (status === "approved") return 2;
-      return 3;
-    };
-
-    const { data: rolesData, error: rolesError } = await supabase
-      .from("roles")
-      .select("*");
-
-    const { data: divisionsData, error: divisionsError } = await supabase
-      .from("divisions")
-      .select("*");
-      
-    // Fetch profiles, selecting division_id directly to avoid ambiguity
+    const { data: rolesData } = await supabase.from("roles").select("*");
+    const { data: divisionsData } = await supabase.from("divisions").select("*");
     const { data: profilesData, error: profilesError } = await supabase
       .from("profiles")
-      .select(`
-        id, email, badge_number, first_name, last_name, status, avatar_url, division_id,
-        roles (id, name, level)
-      `)
+      .select(`id, email, badge_number, first_name, last_name, status, avatar_url, division_id, roles (id, name, level)`)
       .order("badge_number", { ascending: true }); 
 
-    if (profilesError) {
-      toast.error("Błąd podczas ładowania profili: " + profilesError.message);
-      console.error("Error fetching profiles:", profilesError);
-    } else {
+    if (!profilesError) {
       const allDivisions = divisionsData || [];
-      
-      const formattedProfiles: LocalProfile[] = profilesData.map((p: any) => {
-        const primaryDivision = allDivisions.find(d => d.id === p.division_id);
-        
-        return {
-          id: p.id,
-          email: p.email,
-          badge_number: p.badge_number,
-          first_name: p.first_name || undefined,
-          last_name: p.last_name || undefined,
-          role_id: p.roles.id,
-          role_name: p.roles.name as UserRole,
-          role_level: p.roles.level,
-          division_id: p.division_id || undefined,
-          division_name: primaryDivision?.name || undefined,
-          status: p.status as "pending" | "approved" | "rejected",
-          avatar_url: p.avatar_url || undefined,
-        };
-      }).sort((a, b) => statusOrder(a.status) - statusOrder(b.status)); // Sortowanie po statusie
-      
+      const formattedProfiles: LocalProfile[] = profilesData.map((p: any) => ({
+        id: p.id,
+        email: p.email,
+        badge_number: p.badge_number,
+        first_name: p.first_name || undefined,
+        last_name: p.last_name || undefined,
+        role_id: p.roles.id,
+        role_name: p.roles.name as UserRole,
+        role_level: p.roles.level,
+        division_id: p.division_id || undefined,
+        division_name: allDivisions.find(d => d.id === p.division_id)?.name || undefined,
+        status: p.status as any,
+      }));
       setProfiles(formattedProfiles);
     }
-
-    if (rolesError) {
-      toast.error("Błąd podczas ładowania ról: " + rolesError.message);
-      console.error("Error fetching roles:", rolesError);
-    } else {
-      setRoles(rolesData as Role[]);
-    }
-
-    if (divisionsError) {
-      toast.error("Błąd podczas ładowania dywizji: " + divisionsError.message);
-      console.error("Error fetching divisions:", divisionsError);
-    } else {
-      setDivisions(divisionsData as Division[]);
-    }
+    setRoles(rolesData as Role[] || []);
+    setDivisions(divisionsData as Division[] || []);
     setLoading(false);
   };
 
-  useEffect(() => {
-    fetchAllData();
-  }, []);
+  useEffect(() => { fetchAllData(); }, []);
 
   const handleStatusChange = async (profileId: string, newStatus: "approved" | "rejected") => {
-    const { error } = await supabase
-      .from("profiles")
-      .update({ status: newStatus })
-      .eq("id", profileId);
-
-    if (error) {
-      toast.error("Błąd podczas zmiany statusu: " + error.message);
-      console.error("Error updating status:", error);
-    } else {
-      toast.success(`Status użytkownika zaktualizowany na: ${newStatus === 'approved' ? 'zatwierdzony' : 'odrzucony'}`);
-      fetchAllData(); // Refresh data
-    }
+    const { error } = await supabase.from("profiles").update({ status: newStatus }).eq("id", profileId);
+    if (!error) { toast.success("Status zaktualizowany"); fetchAllData(); }
   };
 
   const handleRoleChange = async (profileId: string, newRoleId: string) => {
-    const { error } = await supabase
-      .from("profiles")
-      .update({ role_id: parseInt(newRoleId) })
-      .eq("id", profileId);
-
-    if (error) {
-      toast.error("Błąd podczas zmiany roli: " + error.message);
-      console.error("Error updating role:", error);
-    } else {
-      toast.success("Rola użytkownika zaktualizowana.");
-      fetchAllData(); // Refresh data
-    }
+    const { error } = await supabase.from("profiles").update({ role_id: parseInt(newRoleId) }).eq("id", profileId);
+    if (!error) { toast.success("Rola zaktualizowana"); fetchAllData(); }
   };
 
   const handleDivisionChange = async (profileId: string, newDivisionId: string) => {
-    const { error } = await supabase
-      .from("profiles")
-      .update({ division_id: parseInt(newDivisionId) })
-      .eq("id", profileId);
-
-    if (error) {
-      toast.error("Błąd podczas zmiany dywizji: " + error.message);
-      console.error("Error updating division:", error);
-    } else {
-      toast.success("Dywizja użytkownika zaktualizowana.");
-      fetchAllData(); // Refresh data
-    }
-  };
-  
-  const handleDeleteProfile = async () => {
-    if (!profileToDelete) return;
-    setDeleting(true);
-    
-    try {
-      // 1. Usuń powiązane rekordy (np. profile_divisions, note_shares, officer_pins)
-      // Zakładamy, że w bazie danych są ustawione kaskadowe usuwania (ON DELETE CASCADE)
-      // Jeśli nie, musielibyśmy usunąć je ręcznie. Dla uproszczenia, usuwamy tylko profil.
-      
-      // 2. Usuń profil
-      const { error: profileError } = await supabase
-        .from("profiles")
-        .delete()
-        .eq("id", profileToDelete.id);
-
-      if (profileError) throw profileError;
-      
-      // 3. Spróbuj usunąć użytkownika z Auth (wymaga odpowiednich uprawnień RLS/Admin)
-      // W przypadku braku uprawnień, profil zostanie usunięty, a konto Auth pozostanie 'osierocone'
-      // co jest akceptowalne w środowisku klienckim bez klucza serwisowego.
-      const { error: authError } = await supabase.auth.admin.deleteUser(profileToDelete.id);
-      
-      if (authError) {
-        console.warn("Nie udało się usunąć użytkownika z Auth (wymagane uprawnienia admina/klucz serwisowy). Usunięto tylko profil.", authError);
-        toast.warning("Usunięto profil, ale nie udało się usunąć konta Auth. Wymagane uprawnienia administratora.");
-      } else {
-        toast.success(`Konto #${profileToDelete.badge_number} zostało usunięte.`);
-      }
-
-      setProfileToDelete(null);
-      fetchAllData();
-      
-    } catch (error: any) {
-      toast.error("Błąd podczas usuwania konta: " + error.message);
-      console.error("Delete error:", error);
-    } finally {
-      setDeleting(false);
-    }
+    const { error } = await supabase.from("profiles").update({ division_id: parseInt(newDivisionId) }).eq("id", profileId);
+    if (!error) { toast.success("Dywizja zaktualizowana"); fetchAllData(); }
   };
 
-  if (loading) {
-    return <div className="text-center text-lapd-navy">Ładowanie danych...</div>;
-  }
-
-  // Check if current user has required role (LT, CPT, HC)
-  const isAuthorized = currentUserProfile && ["Lieutenant", "Captain", "High Command"].includes(currentUserProfile.role_name);
-
-  if (!isAuthorized) {
-    return (
-      <div className="text-center text-red-600 font-bold text-xl mt-10">
-        Brak uprawnień do dostępu do tej strony.
-      </div>
-    );
-  }
+  if (loading) return <div className="text-center text-white py-20">Ładowanie systemowe...</div>;
 
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="text-3xl font-bold text-lapd-navy">Zarządzanie Kontami Funkcjonariuszy</h1>
-      <p className="text-gray-700">Przeglądaj i zarządzaj kontami oczekującymi na akceptację oraz edytuj role i dywizje istniejących funkcjonariuszy.</p>
+      <h1 className="text-4xl font-black text-white uppercase tracking-tight">Zarządzanie Kontami</h1>
+      <p className="text-slate-200 text-sm font-medium">Baza danych aktywnych i oczekujących funkcjonariuszy LSPD.</p>
 
-      <Card className="bg-lapd-white border-lapd-gold shadow-md">
-        <CardHeader>
-          <CardTitle className="text-lapd-navy">Lista Kont</CardTitle>
+      <Card className="bg-white/5 border-white/10 shadow-2xl">
+        <CardHeader className="border-b border-white/5">
+          <CardTitle className="text-white uppercase text-lg">Rejestr Personelu</CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-lapd-navy text-lapd-white hover:bg-lapd-navy">
-                  <TableHead className="text-lapd-white">Email</TableHead>
-                  <TableHead className="text-lapd-white">Numer Odznaki</TableHead>
-                  <TableHead className="text-lapd-white">Status</TableHead>
-                  <TableHead className="text-lapd-white">Rola</TableHead>
-                  <TableHead className="text-lapd-white">Dywizja</TableHead>
-                  <TableHead className="text-lapd-white text-right">Akcje</TableHead>
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader className="bg-white/5">
+              <TableRow>
+                <TableHead className="text-white font-bold">Email</TableHead>
+                <TableHead className="text-white font-bold">Odznaka</TableHead>
+                <TableHead className="text-white font-bold">Status</TableHead>
+                <TableHead className="text-white font-bold">Rola</TableHead>
+                <TableHead className="text-white font-bold">Dywizja</TableHead>
+                <TableHead className="text-white font-bold text-right px-6">Akcje</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {profiles.map((p) => (
+                <TableRow key={p.id} className="hover:bg-white/5 border-b border-white/5">
+                  <TableCell className="text-white font-medium">{p.email}</TableCell>
+                  <TableCell className="text-white">#{p.badge_number}</TableCell>
+                  <TableCell>
+                    <span className={`px-2 py-1 rounded text-[10px] font-black uppercase ${
+                      p.status === "approved" ? "bg-green-500/20 text-green-400" : "bg-amber-500/20 text-amber-400"
+                    }`}>
+                      {p.status}
+                    </span>
+                  </TableCell>
+                  <TableCell>
+                    <Select value={p.role_id.toString()} onValueChange={(v) => handleRoleChange(p.id, v)}>
+                      <SelectTrigger className="w-40 bg-black/40 border-white/10 text-white">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="bg-slate-900 border-white/20 text-white">
+                        {roles.map((r) => <SelectItem key={r.id} value={r.id.toString()}>{r.name}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </TableCell>
+                  <TableCell>
+                    <Select value={p.division_id?.toString() || ""} onValueChange={(v) => handleDivisionChange(p.id, v)}>
+                      <SelectTrigger className="w-40 bg-black/40 border-white/10 text-white">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="bg-slate-900 border-white/20 text-white">
+                        {divisions.map((d) => <SelectItem key={d.id} value={d.id.toString()}>{d.name}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </TableCell>
+                  <TableCell className="text-right px-6 space-x-2">
+                    {p.status === "pending" && (
+                      <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white font-bold" onClick={() => handleStatusChange(p.id, "approved")}>ZATWIERDŹ</Button>
+                    )}
+                    <Button variant="ghost" size="icon" className="text-red-500 hover:bg-red-500/10" onClick={() => setProfileToDelete(p)} disabled={p.id === currentUserProfile?.id}>
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </TableCell>
                 </TableRow>
-              </TableHeader>
-              <TableBody>
-                {profiles.map((profile) => (
-                  <TableRow key={profile.id} className="hover:bg-gray-50">
-                    <TableCell className="font-medium text-lapd-navy">{profile.email}</TableCell>
-                    <TableCell className="text-gray-700">{profile.badge_number}</TableCell>
-                    <TableCell>
-                      <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                        profile.status === "approved" ? "bg-green-100 text-green-800" :
-                        profile.status === "pending" ? "bg-yellow-100 text-yellow-800" :
-                        "bg-red-100 text-red-800"
-                      }`}>
-                        {profile.status === "approved" ? "Akceptowane" :
-                         profile.status === "pending" ? "Oczekujące" : "Odrzucone"}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      <Select
-                        value={profile.role_id.toString()}
-                        onValueChange={(value) => handleRoleChange(profile.id, value)}
-                        disabled={profile.status !== "approved"} // Wyłącz edycję roli dla niezatwierdzonych
-                      >
-                        <SelectTrigger className="w-[180px] border-lapd-gold text-lapd-navy">
-                          <SelectValue placeholder="Wybierz rolę" />
-                        </SelectTrigger>
-                        <SelectContent className="bg-lapd-white text-lapd-navy border-lapd-gold">
-                          {roles.map((role) => (
-                            <SelectItem key={role.id} value={role.id.toString()}>
-                              {role.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </TableCell>
-                    <TableCell>
-                      <Select
-                        value={profile.division_id?.toString() || ""}
-                        onValueChange={(value) => handleDivisionChange(profile.id, value)}
-                        disabled={profile.status !== "approved"} // Wyłącz edycję dywizji dla niezatwierdzonych
-                      >
-                        <SelectTrigger className="w-[180px] border-lapd-gold text-lapd-navy">
-                          <SelectValue placeholder="Wybierz dywizję" />
-                        </SelectTrigger>
-                        <SelectContent className="bg-lapd-white text-lapd-navy border-lapd-gold">
-                          {divisions.map((division) => (
-                            <SelectItem key={division.id} value={division.id.toString()}>
-                              {division.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </TableCell>
-                    <TableCell className="text-right space-x-2">
-                      {profile.status === "pending" && (
-                        <>
-                          <Button
-                            variant="outline"
-                            className="bg-green-500 hover:bg-green-600 text-white"
-                            onClick={() => handleStatusChange(profile.id, "approved")}
-                          >
-                            Akceptuj
-                          </Button>
-                          <Button
-                            variant="outline"
-                            className="bg-red-500 hover:bg-red-600 text-white"
-                            onClick={() => handleStatusChange(profile.id, "rejected")}
-                          >
-                            Odrzuć
-                          </Button>
-                        </>
-                      )}
-                      {profile.status === "rejected" && (
-                        <Button
-                          variant="outline"
-                          className="bg-green-500 hover:bg-green-600 text-white"
-                          onClick={() => handleStatusChange(profile.id, "approved")}
-                        >
-                          Akceptuj
-                        </Button>
-                      )}
-                      {profile.status === "approved" && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="text-red-500 hover:bg-red-50"
-                          onClick={() => setProfileToDelete(profile)}
-                          disabled={profile.id === currentUserProfile?.id} // Nie można usunąć własnego konta
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
+              ))}
+            </TableBody>
+          </Table>
         </CardContent>
       </Card>
-      
-      {/* Alert Dialog for Deletion Confirmation */}
-      <AlertDialog open={!!profileToDelete} onOpenChange={() => !deleting && setProfileToDelete(null)}>
-        <AlertDialogContent className="border-2 border-red-500">
-          <AlertDialogHeader>
-            <AlertDialogTitle className="text-red-600 font-black uppercase">Potwierdź usunięcie konta</AlertDialogTitle>
-            <AlertDialogDescription>
-              Czy na pewno chcesz usunąć konto funkcjonariusza **#{profileToDelete?.badge_number}** ({profileToDelete?.email})? 
-              Ta operacja jest nieodwracalna i usunie wszystkie powiązane dane profilu.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={deleting} className="font-bold">ANULUJ</AlertDialogCancel>
-            <AlertDialogAction 
-              onClick={handleDeleteProfile} 
-              disabled={deleting}
-              className="bg-red-600 hover:bg-red-700 text-white font-bold"
-            >
-              {deleting ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : <Trash2 className="h-4 w-4 mr-2" />}
-              USUŃ KONTO
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 };

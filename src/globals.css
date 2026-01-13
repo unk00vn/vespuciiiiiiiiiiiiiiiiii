@@ -8,45 +8,36 @@
     --foreground: 210 40% 98%;
     --card: 222 47% 4%;
     --card-foreground: 210 40% 98%;
-    --popover: 222 47% 4%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 45 58% 60%;
-    --primary-foreground: 222 47% 5%;
-    --secondary: 217 33% 12%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217 33% 15%;
-    --muted-foreground: 210 40% 90%; /* Bardzo jasny szary dla wysokiego kontrastu */
-    --accent: 45 58% 60%;
-    --accent-foreground: 222 47% 5%;
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217 33% 15%;
-    --input: 217 33% 15%;
-    --ring: 45 58% 60%;
-    --radius: 0.3rem;
+    --muted-foreground: 215 20% 85%; /* Bardzo jasny dla widoczności */
+    --border: 217 33% 20%;
   }
 }
 
 body {
-  @apply bg-background text-foreground antialiased;
-  color: #f8fafc !important; /* Wymuszenie jasnego tekstu */
-}
-
-/* Wymuszenie widoczności dla tekstów pomocniczych */
-.text-muted-foreground, .text-gray-500, .text-slate-500 {
-  color: #cbd5e1 !important; /* Jasny szary/biały */
-}
-
-.text-gray-700, .text-slate-700 {
-  color: #f1f5f9 !important; /* Prawie biały */
-}
-
-/* Pola tekstowe - biały tekst przy pisaniu */
-input, textarea, select {
+  @apply bg-background text-white antialiased;
   color: #ffffff !important;
-  background-color: rgba(10, 26, 47, 0.8) !important;
 }
 
-::-webkit-scrollbar-thumb {
-  @apply bg-lapd-gold/30 rounded-full hover:bg-lapd-gold/60;
+/* Wymuszenie bieli dla wszystkich standardowych klas tekstowych */
+h1, h2, h3, h4, h5, h6, .text-lapd-navy, .text-gray-900, .text-slate-900 {
+  color: #ffffff !important;
+}
+
+p, span, label, .text-gray-700, .text-slate-700, .text-muted-foreground {
+  color: #e2e8f0 !important; /* Jasne srebro */
+}
+
+/* Pola formularzy - maksymalna widoczność */
+input, textarea, select, .input {
+  color: #ffffff !important;
+  background-color: #0f172a !important;
+  border-color: #334155 !important;
+}
+
+input::placeholder {
+  color: #94a3b8 !important;
+}
+
+.bg-lapd-white {
+  background-color: #0f172a !important; /* Zamiana jasnych kart na ciemne z białym tekstem */
 }
