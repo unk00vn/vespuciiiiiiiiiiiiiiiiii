@@ -4,7 +4,6 @@ import React from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
-import { NotificationBell } from "./NotificationBell";
 import { Shield } from "lucide-react";
 
 export const Navbar = () => {
@@ -23,7 +22,6 @@ export const Navbar = () => {
         </div>
       </div>
       <div className="flex items-center space-x-6">
-        <NotificationBell />
         <Link to="/profile" className="flex items-center space-x-4 group">
           <div className="text-right hidden sm:block">
             <p className="text-xs font-black text-lapd-gold uppercase">{profile?.last_name}</p>
