@@ -31,7 +31,6 @@ export const OfficerStats = () => {
     reportsSent: 0,
     reportsReceived: 0,
     loginsCount: 0,
-    awards: 5, // Mocked for now
     loading: true
   });
 
@@ -60,7 +59,6 @@ export const OfficerStats = () => {
           reportsSent: sentCount || 0,
           reportsReceived: receivedCount || 0,
           loginsCount: mockLogins,
-          awards: 5,
           loading: false
         });
 
@@ -93,12 +91,6 @@ export const OfficerStats = () => {
       icon: <LogIn className="h-5 w-5" />,
       color: "bg-purple-500"
     },
-    {
-      name: "Wyróżnienia",
-      value: statsData.awards,
-      icon: <Award className="h-5 w-5" />,
-      color: "bg-yellow-500"
-    }
   ];
 
   return (

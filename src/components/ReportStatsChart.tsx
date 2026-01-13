@@ -6,54 +6,50 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsive
 import { FileText, CheckCircle, Clock, TrendingUp, Loader2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
+import { format, subDays, isAfter } from "date-fns";
 
-interface MonthlyReportStats {
-  month: string;
+interface DailyReportStats {
+  date: string;
   Wysłane: number;
   Otrzymane: number;
   Zakończone: number;
 }
 
-const getMonthName = (monthIndex: number) => {
-  const names = ['Sty', 'Lut', 'Mar', 'Kwi', 'Maj', 'Cze', 'Lip', 'Sie', 'Wrz', 'Paź', 'Lis', 'Gru'];
-  return names[monthIndex];
-};
-
 export const ReportStatsChart = ({ profileId }: { profileId: string }) => {
-  const [data, setData] = useState<MonthlyReportStats[]>([]);
+  const [data, setData] = useState<DailyReportStats[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchReportStats = async () => {
       setLoading(true);
       try {
+        const thirtyDaysAgo = subDays(new Date(), 30);
+        
         // Pobieramy wszystkie raporty, które dotyczą tego profilu (autor lub adresat)
         const { data: reportsData, error } = await supabase
           .from("reports")
           .select("created_at, author_id, recipient_id, status")
           .or(`author_id.eq.${profileId},recipient_id.eq.${profileId}`)
+          .gte("created_at", thirtyDaysAgo.toISOString()) // Filtrujemy tylko ostatnie 30 dni
           .order("created_at", { ascending: true });
 
         if (error) throw error;
 
-        const monthlyStatsMap = new Map<string, { Wysłane: number, Otrzymane: number, Zakończone: number }>();
-        const now = new Date();
-        const currentYear = now.getFullYear();
+        const dailyStatsMap = new Map<string, { Wysłane: number, Otrzymane: number, Zakończone: number }>();
         
-        // Inicjalizacja statystyk dla ostatnich 6 miesięcy
-        for (let i = 5; i >= 0; i--) {
-          const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
-          const monthKey = `${date.getFullYear()}-${date.getMonth()}`;
-          monthlyStatsMap.set(monthKey, { Wysłane: 0, Otrzymane: 0, Zakończone: 0 });
+        // Inicjalizacja statystyk dla ostatnich 30 dni
+        for (let i = 0; i < 30; i++) {
+          const date = subDays(new Date(), 29 - i);
+          const dateKey = format(date, 'dd/MM');
+          dailyStatsMap.set(dateKey, { Wysłane: 0, Otrzymane: 0, Zakończone: 0 });
         }
 
         reportsData.forEach(report => {
           const date = new Date(report.created_at);
-          const reportYear = date.getFullYear();
-          const monthKey = `${reportYear}-${date.getMonth()}`;
+          const dateKey = format(date, 'dd/MM');
           
-          if (monthlyStatsMap.has(monthKey)) {
-            const stats = monthlyStatsMap.get(monthKey)!;
+          if (dailyStatsMap.has(dateKey)) {
+            const stats = dailyStatsMap.get(dateKey)!;
 
             if (report.author_id === profileId) {
               stats.Wysłane += 1;
@@ -64,17 +60,14 @@ export const ReportStatsChart = ({ profileId }: { profileId: string }) => {
             if (report.status === 'Zakończony' && (report.author_id === profileId || report.recipient_id === profileId)) {
               stats.Zakończone += 1;
             }
-            monthlyStatsMap.set(monthKey, stats);
+            dailyStatsMap.set(dateKey, stats);
           }
         });
 
-        const chartData: MonthlyReportStats[] = Array.from(monthlyStatsMap.entries()).map(([key, stats]) => {
-          const [, monthIndexStr] = key.split('-');
-          return {
-            month: getMonthName(parseInt(monthIndexStr)),
-            ...stats,
-          };
-        });
+        const chartData: DailyReportStats[] = Array.from(dailyStatsMap.entries()).map(([date, stats]) => ({
+          date: date,
+          ...stats,
+        }));
 
         setData(chartData);
 
@@ -96,7 +89,7 @@ export const ReportStatsChart = ({ profileId }: { profileId: string }) => {
       <CardHeader>
         <CardTitle className="text-lapd-navy flex items-center">
           <TrendingUp className="h-5 w-5 mr-2" />
-          Statystyki Raportów (Ostatnie 6 miesięcy)
+          Statystyki Raportów (Ostatnie 30 dni)
         </CardTitle>
       </CardHeader>
       <CardContent>
@@ -112,8 +105,8 @@ export const ReportStatsChart = ({ profileId }: { profileId: string }) => {
                 margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
               >
                 <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="month" />
-                <YAxis />
+                <XAxis dataKey="date" tickFormatter={(tick) => tick.split('/')[0]} />
+                <YAxis allowDecimals={false} />
                 <Tooltip 
                   contentStyle={{ 
                     backgroundColor: '#0A1A2F', 
