@@ -79,39 +79,38 @@ const DivisionsPage = () => {
     }
 
     setSaving(true);
-    if (isEditing && currentDivision.id) {
-      const { error } = await supabase
-        .from("divisions")
-        .update({
-          name: currentDivision.name,
-          description: currentDivision.description
-        })
-        .eq("id", currentDivision.id);
+    try {
+      if (isEditing && currentDivision.id) {
+        const { error } = await supabase
+          .from("divisions")
+          .update({
+            name: currentDivision.name,
+            description: currentDivision.description
+          })
+          .eq("id", currentDivision.id);
 
-      if (error) {
-        toast.error("Błąd podczas aktualizacji: " + error.message);
-      } else {
+        if (error) throw error;
         toast.success("Dywizja zaktualizowana.");
-        setIsDialogOpen(false);
-        fetchDivisions();
-      }
-    } else {
-      const { error } = await supabase
-        .from("divisions")
-        .insert({
-          name: currentDivision.name,
-          description: currentDivision.description
-        });
-
-      if (error) {
-        toast.error("Błąd podczas dodawania: " + error.message);
       } else {
+        const { error } = await supabase
+          .from("divisions")
+          .insert({
+            name: currentDivision.name,
+            description: currentDivision.description
+          });
+
+        if (error) throw error;
         toast.success("Nowa dywizja została utworzona.");
-        setIsDialogOpen(false);
-        fetchDivisions();
       }
+      
+      setIsDialogOpen(false);
+      await fetchDivisions();
+    } catch (error: any) {
+      toast.error("Błąd zapisu: " + error.message);
+      console.error("Save error:", error);
+    } finally {
+      setSaving(false);
     }
-    setSaving(false);
   };
 
   return (

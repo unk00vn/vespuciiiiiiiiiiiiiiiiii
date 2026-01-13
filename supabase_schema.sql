@@ -1,27 +1,13 @@
--- Usuwamy starą zbiorczą politykę
-DROP POLICY IF EXISTS "LT+ manage profile divisions" ON profile_divisions;
+-- 1. Zezwól wszystkim na podgląd dywizji
+DROP POLICY IF EXISTS "Anyone can view divisions" ON divisions;
+CREATE POLICY "Anyone can view divisions" ON divisions FOR SELECT USING (true);
 
--- 1. Zezwól LT+ na usuwanie powiązań
-CREATE POLICY "LT+ delete profile divisions" ON profile_divisions 
-FOR DELETE USING (
+-- 2. Zezwól High Command na pełne zarządzanie (INSERT, UPDATE, DELETE)
+DROP POLICY IF EXISTS "High Command can manage divisions" ON divisions;
+CREATE POLICY "High Command can manage divisions" ON divisions FOR ALL USING (
   EXISTS (
     SELECT 1 FROM profiles p 
     JOIN roles r ON p.role_id = r.id 
-    WHERE p.id = auth.uid() AND r.level >= 3
+    WHERE p.id = auth.uid() AND r.name = 'High Command'
   )
 );
-
--- 2. Zezwól LT+ na dodawanie powiązań
-CREATE POLICY "LT+ insert profile divisions" ON profile_divisions 
-FOR INSERT WITH CHECK (
-  EXISTS (
-    SELECT 1 FROM profiles p 
-    JOIN roles r ON p.role_id = r.id 
-    WHERE p.id = auth.uid() AND r.level >= 3
-  )
-);
-
--- 3. Zezwól wszystkim na podgląd
-DROP POLICY IF EXISTS "View profile divisions" ON profile_divisions;
-CREATE POLICY "View profile divisions" ON profile_divisions 
-FOR SELECT USING (true);
