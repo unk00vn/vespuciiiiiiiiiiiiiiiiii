@@ -5,50 +5,42 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
-import { Paperclip, Lock, Users, Trash2, FileText, ClipboardList, Check, Loader2 } from "lucide-react";
+import { Paperclip, Lock, Users, Trash2, FileText, ClipboardList, Check, Loader2, ShieldAlert } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 
-interface PinItem {
-  id: string;
-  author_id: string;
-  notes?: { title: string; content: string };
-  reports?: { title: string; status: string };
-}
-
 export const OfficerDossier = ({ targetOfficer }: { targetOfficer: any }) => {
   const { profile } = useAuth();
-  const [pins, setPins] = useState<PinItem[]>([]);
+  const [pins, setPins] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [myNotes, setMyNotes] = useState<any[]>([]);
   const [myReports, setMyReports] = useState<any[]>([]);
   const [allOfficers, setAllOfficers] = useState<any[]>([]);
-  
-  // State dla formularza przypinania
   const [selectedDoc, setSelectedDoc] = useState<{type: 'note' | 'report', id: string} | null>(null);
   const [sharedWith, setSharedWith] = useState<string[]>([]);
   const [isPinning, setIsPinning] = useState(false);
 
   const fetchData = async () => {
     setLoading(true);
-    // Pobierz piny
     const { data: pinsData } = await supabase
       .from("officer_pins")
-      .select("*, notes(title, content), reports(title, status)")
+      .select("*, notes(id, title, content), reports(id, title, status)")
       .eq("target_profile_id", targetOfficer.id);
     setPins(pinsData || []);
 
-    // Pobierz moje dokumenty
     const { data: notes } = await supabase.from("notes").select("*").eq("author_id", profile?.id);
     const { data: reports } = await supabase.from("reports").select("*").eq("author_id", profile?.id);
-    setMyNotes(notes || []);
-    setMyReports(reports || []);
+    
+    // Filtrowanie: usuwamy dokumenty, które już są przypięte (ich ID są w pins)
+    const pinnedNoteIds = pinsData?.map(p => p.note_id).filter(Boolean) || [];
+    const pinnedReportIds = pinsData?.map(p => p.report_id).filter(Boolean) || [];
 
-    // Pobierz wszystkich funkcjonariuszy (do udostępniania)
+    setMyNotes(notes?.filter(n => !pinnedNoteIds.includes(n.id)) || []);
+    setMyReports(reports?.filter(r => !pinnedReportIds.includes(r.id)) || []);
+
     const { data: officers } = await supabase.from("profiles").select("id, first_name, last_name, badge_number").eq("status", "approved");
     setAllOfficers(officers || []);
     setLoading(false);
@@ -57,96 +49,66 @@ export const OfficerDossier = ({ targetOfficer }: { targetOfficer: any }) => {
   const handlePin = async () => {
     if (!selectedDoc) return;
     setIsPinning(true);
-
-    // 1. Stwórz główny wpis pinu
-    const { data: pinData, error: pinError } = await supabase
-      .from("officer_pins")
-      .insert({
+    const { data: pinData, error: pinError } = await supabase.from("officer_pins").insert({
         author_id: profile?.id,
         target_profile_id: targetOfficer.id,
         [selectedDoc.type === 'note' ? 'note_id' : 'report_id']: selectedDoc.id
-      })
-      .select()
-      .single();
+      }).select().single();
 
     if (pinError) {
-      toast.error("Błąd: Element jest już przypięty do tej teczki.");
+      toast.error("Błąd zapisu pinu.");
       setIsPinning(false);
       return;
     }
 
-    // 2. Jeśli wybrano osoby, dodaj udostępnienia
     if (sharedWith.length > 0) {
-      const shares = sharedWith.map(offId => ({
-        pin_id: pinData.id,
-        profile_id: offId
-      }));
-      await supabase.from("officer_pin_shares").insert(shares);
+      await supabase.from("officer_pin_shares").insert(sharedWith.map(offId => ({ pin_id: pinData.id, profile_id: offId })));
     }
 
-    toast.success("Dokument został przypięty i udostępniony.");
+    toast.success("Dokument przypięty.");
     setSelectedDoc(null);
     setSharedWith([]);
     fetchData();
     setIsPinning(false);
   };
 
-  const removePin = async (pinId: string) => {
-    const { error } = await supabase.from("officer_pins").delete().eq("id", pinId);
-    if (!error) {
-      toast.success("Usunięto z teczki.");
-      fetchData();
-    }
-  };
-
   return (
     <Dialog onOpenChange={(open) => open && fetchData()}>
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm" className="border-lapd-gold text-lapd-navy hover:bg-lapd-gold/10">
+        <Button variant="outline" size="sm" className="border-lapd-gold text-lapd-gold hover:bg-lapd-gold hover:text-lapd-navy transition-all font-bold">
           <Paperclip className="h-4 w-4 mr-2" /> TECZKA
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-3xl border-lapd-gold bg-white max-h-[90vh] flex flex-col">
+      <DialogContent className="max-w-3xl border-lapd-gold bg-lapd-darker text-foreground max-h-[90vh] flex flex-col">
         <DialogHeader>
-          <DialogTitle className="text-lapd-navy uppercase font-black">
-            Teczka Funkcjonariusza: {targetOfficer.first_name} {targetOfficer.last_name}
+          <DialogTitle className="text-lapd-gold uppercase font-black tracking-tighter text-2xl">
+            DOSSIER: {targetOfficer.first_name} {targetOfficer.last_name}
           </DialogTitle>
         </DialogHeader>
 
-        <Tabs defaultValue="view" className="w-full flex-1 flex flex-col overflow-hidden">
-          <TabsList className="grid w-full grid-cols-2 bg-gray-100">
-            <TabsTrigger value="view">Podgląd Zawartości</TabsTrigger>
-            <TabsTrigger value="add">Przypnij Nowe Dokumenty</TabsTrigger>
+        <Tabs defaultValue="view" className="flex-1 flex flex-col overflow-hidden">
+          <TabsList className="grid w-full grid-cols-2 bg-lapd-navy/50 p-1">
+            <TabsTrigger value="view" className="data-[state=active]:bg-lapd-gold data-[state=active]:text-lapd-navy font-bold uppercase text-xs">ZAWARTOŚĆ</TabsTrigger>
+            <TabsTrigger value="add" className="data-[state=active]:bg-lapd-gold data-[state=active]:text-lapd-navy font-bold uppercase text-xs">DODAJ WPIS</TabsTrigger>
           </TabsList>
 
           <TabsContent value="view" className="flex-1 overflow-hidden py-4">
-            <ScrollArea className="h-full pr-4">
-              {pins.length === 0 ? (
-                <div className="text-center text-gray-400 py-20">Teczka nie zawiera żadnych przypiętych dokumentów.</div>
-              ) : (
-                <div className="grid grid-cols-1 gap-3">
+            <ScrollArea className="h-[400px] pr-4">
+              {pins.length === 0 ? <div className="text-center text-muted-foreground py-20 italic">Brak dokumentacji.</div> : (
+                <div className="space-y-3">
                   {pins.map((pin) => (
-                    <div key={pin.id} className="border border-gray-200 rounded-lg p-4 bg-gray-50 flex justify-between items-start group">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-2">
-                          {pin.notes ? <ClipboardList className="h-5 w-5 text-amber-500" /> : <FileText className="h-5 w-5 text-blue-500" />}
-                          <span className="font-black text-lapd-navy uppercase tracking-tight">
-                            {pin.notes?.title || pin.reports?.title}
-                          </span>
+                    <div key={pin.id} className="border border-lapd-gray rounded p-4 bg-lapd-navy/30 flex justify-between items-start group">
+                      <div>
+                        <div className="flex items-center gap-2 mb-1">
+                          {pin.notes ? <ClipboardList className="h-4 w-4 text-lapd-gold" /> : <FileText className="h-4 w-4 text-blue-400" />}
+                          <span className="font-bold text-sm uppercase">{pin.notes?.title || pin.reports?.title}</span>
                         </div>
-                        <p className="text-sm text-gray-600 line-clamp-3">
-                          {pin.notes?.content || "Dokumentacja systemowa - Raport LSPD"}
-                        </p>
+                        <p className="text-xs text-muted-foreground line-clamp-2">{pin.notes?.content || "Raport Służbowy LSPD"}</p>
                       </div>
                       {pin.author_id === profile?.id && (
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          onClick={() => removePin(pin.id)} 
-                          className="text-red-400 hover:text-red-600 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-opacity"
-                        >
-                          <Trash2 className="h-5 w-5" />
-                        </Button>
+                        <Button variant="ghost" size="icon" onClick={() => {
+                            supabase.from("officer_pins").delete().eq("id", pin.id).then(() => fetchData());
+                        }} className="text-destructive opacity-0 group-hover:opacity-100"><Trash2 className="h-4 w-4" /></Button>
                       )}
                     </div>
                   ))}
@@ -155,84 +117,48 @@ export const OfficerDossier = ({ targetOfficer }: { targetOfficer: any }) => {
             </ScrollArea>
           </TabsContent>
 
-          <TabsContent value="add" className="flex-1 flex flex-col gap-6 overflow-hidden py-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 flex-1 overflow-hidden">
-              {/* Lewa kolumna: Wybór dokumentu */}
-              <div className="flex flex-col overflow-hidden">
-                <h4 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-3">1. Wybierz Dokument</h4>
-                <ScrollArea className="flex-1 border rounded-lg p-2 bg-gray-50/50">
-                  <div className="space-y-4">
-                    <div>
-                      <p className="text-[10px] font-bold text-gray-400 uppercase mb-2">Notatki</p>
-                      {myNotes.map(n => (
-                        <div 
-                          key={n.id} 
-                          onClick={() => setSelectedDoc({type: 'note', id: n.id})}
-                          className={`p-2 mb-1 rounded cursor-pointer text-sm flex items-center justify-between border transition-all ${selectedDoc?.id === n.id ? 'bg-lapd-navy text-lapd-gold border-lapd-gold' : 'bg-white hover:border-lapd-gold/50'}`}
-                        >
-                          <span className="truncate">{n.title}</span>
-                          {selectedDoc?.id === n.id && <Check className="h-4 w-4" />}
+          <TabsContent value="add" className="flex-1 flex flex-col gap-4 overflow-hidden py-4">
+            <div className="grid grid-cols-2 gap-4 h-[350px]">
+              <div className="flex flex-col">
+                <h4 className="text-[10px] font-black text-muted-foreground uppercase mb-2">Dostępne dokumenty</h4>
+                <ScrollArea className="border border-lapd-gray rounded bg-black/20 p-2">
+                    <div className="space-y-4">
+                        <div>
+                            <p className="text-[9px] font-bold text-lapd-gold mb-2 border-b border-lapd-gold/20">NOTATKI</p>
+                            {myNotes.map(n => (
+                                <div key={n.id} onClick={() => setSelectedDoc({type: 'note', id: n.id})} className={`p-2 mb-1 rounded cursor-pointer text-xs flex justify-between border transition-all ${selectedDoc?.id === n.id ? 'bg-lapd-gold text-lapd-navy border-lapd-gold' : 'hover:border-lapd-gold/50'}`}>
+                                    <span className="truncate">{n.title}</span>
+                                    {selectedDoc?.id === n.id && <Check className="h-3 w-3" />}
+                                </div>
+                            ))}
                         </div>
-                      ))}
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-bold text-gray-400 uppercase mb-2">Raporty</p>
-                      {myReports.map(r => (
-                        <div 
-                          key={r.id} 
-                          onClick={() => setSelectedDoc({type: 'report', id: r.id})}
-                          className={`p-2 mb-1 rounded cursor-pointer text-sm flex items-center justify-between border transition-all ${selectedDoc?.id === r.id ? 'bg-lapd-navy text-lapd-gold border-lapd-gold' : 'bg-white hover:border-lapd-gold/50'}`}
-                        >
-                          <span className="truncate">{r.title}</span>
-                          {selectedDoc?.id === r.id && <Check className="h-4 w-4" />}
+                        <div>
+                            <p className="text-[9px] font-bold text-blue-400 mb-2 border-b border-blue-400/20">RAPORTY</p>
+                            {myReports.map(r => (
+                                <div key={r.id} onClick={() => setSelectedDoc({type: 'report', id: r.id})} className={`p-2 mb-1 rounded cursor-pointer text-xs flex justify-between border transition-all ${selectedDoc?.id === r.id ? 'bg-lapd-gold text-lapd-navy border-lapd-gold' : 'hover:border-lapd-gold/50'}`}>
+                                    <span className="truncate">{r.title}</span>
+                                    {selectedDoc?.id === r.id && <Check className="h-3 w-3" />}
+                                </div>
+                            ))}
                         </div>
-                      ))}
                     </div>
-                  </div>
                 </ScrollArea>
               </div>
-
-              {/* Prawa kolumna: Wybór osób */}
-              <div className="flex flex-col overflow-hidden">
-                <h4 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-3">2. Komu Udostępnić?</h4>
-                <ScrollArea className="flex-1 border rounded-lg p-2 bg-gray-50/50">
-                  <div className="space-y-1">
+              <div className="flex flex-col">
+                <h4 className="text-[10px] font-black text-muted-foreground uppercase mb-2">Udostępnianie</h4>
+                <ScrollArea className="border border-lapd-gray rounded bg-black/20 p-2">
                     {allOfficers.filter(o => o.id !== profile?.id).map(o => (
-                      <div 
-                        key={o.id} 
-                        className={`flex items-center space-x-3 p-2 rounded hover:bg-white border border-transparent transition-colors ${sharedWith.includes(o.id) ? 'bg-white border-lapd-gold/30 shadow-sm' : ''}`}
-                      >
-                        <Checkbox 
-                          id={`share-${o.id}`} 
-                          checked={sharedWith.includes(o.id)}
-                          onCheckedChange={(checked) => {
-                            setSharedWith(prev => checked ? [...prev, o.id] : prev.filter(id => id !== o.id));
-                          }}
-                        />
-                        <Label htmlFor={`share-${o.id}`} className="flex-1 text-xs cursor-pointer">
-                          <span className="font-bold">#{o.badge_number}</span> {o.first_name} {o.last_name}
-                        </Label>
-                      </div>
+                        <div key={o.id} className="flex items-center space-x-2 p-1.5 hover:bg-lapd-navy/50 rounded">
+                            <Checkbox id={`s-${o.id}`} checked={sharedWith.includes(o.id)} onCheckedChange={(c) => setSharedWith(prev => c ? [...prev, o.id] : prev.filter(i => i !== o.id))} />
+                            <Label htmlFor={`s-${o.id}`} className="text-[10px] cursor-pointer font-bold">#{o.badge_number} {o.last_name}</Label>
+                        </div>
                     ))}
-                    {allOfficers.length <= 1 && <p className="text-xs text-gray-400 p-4 text-center">Brak innych funkcjonariuszy do udostępnienia.</p>}
-                  </div>
                 </ScrollArea>
               </div>
             </div>
-
-            <div className="pt-4 border-t flex flex-col items-center">
-              <p className="text-[10px] text-gray-400 uppercase font-bold mb-4">
-                {selectedDoc ? "Wybrano 1 element do przypięcia" : "Wybierz dokument z listy powyżej"}
-              </p>
-              <Button 
-                onClick={handlePin} 
-                disabled={!selectedDoc || isPinning}
-                className="bg-lapd-navy text-lapd-gold hover:bg-lapd-navy/90 px-12 py-6 font-black uppercase tracking-widest shadow-xl disabled:opacity-50"
-              >
-                {isPinning ? <Loader2 className="animate-spin mr-2" /> : <Paperclip className="h-5 w-5 mr-2" />}
-                PRZYPNIJ DO TECZKI
-              </Button>
-            </div>
+            <Button onClick={handlePin} disabled={!selectedDoc || isPinning} className="bg-lapd-gold text-lapd-navy font-black uppercase w-full py-6 mt-2">
+                {isPinning ? <Loader2 className="animate-spin mr-2" /> : <Paperclip className="h-4 w-4 mr-2" />} PRZYPNIJ DO TECZKI
+            </Button>
           </TabsContent>
         </Tabs>
       </DialogContent>
