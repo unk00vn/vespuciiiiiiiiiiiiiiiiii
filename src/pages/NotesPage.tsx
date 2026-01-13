@@ -136,40 +136,69 @@ const NotesPage = () => {
     setLoading(true);
     
     try {
-        // 1. Pobieramy notatki, których jestem autorem, wraz z ich udostępnieniami
-        const { data: myNotes, error: myNotesError } = await supabase
+        // 1. Płaskie zapytanie: Notatki, których jestem autorem
+        const { data: myNotesData, error: myNotesError } = await supabase
           .from("notes")
-          .select("*, note_shares(profile_id)")
+          .select("*")
           .eq("author_id", profile.id);
           
         if (myNotesError) throw myNotesError;
-          
-        // 2. Pobieramy ID notatek, które zostały mi udostępnione
-        const { data: sharedIds, error: sharedIdsError } = await supabase
+        
+        // 2. Płaskie zapytanie: Udostępnienia, w których jestem odbiorcą
+        const { data: sharedData, error: sharedError } = await supabase
           .from("note_shares")
           .select("note_id")
           .eq("profile_id", profile.id);
           
-        if (sharedIdsError) throw sharedIdsError;
+        if (sharedError) throw sharedError;
         
-        const sharedNoteIds = sharedIds?.map(s => s.note_id) || [];
+        const sharedNoteIds = sharedData?.map(s => s.note_id) || [];
         
-        let sharedNotes: Note[] = [];
+        // 3. Płaskie zapytanie: Prawdziwe notatki, które mi udostępniono
+        let sharedNotesData: Note[] = [];
         if (sharedNoteIds.length > 0) {
-            // 3. Pobieramy udostępnione notatki (bez rekursywnego zagnieżdżenia)
-            const { data: sharedData, error: sharedDataError } = await supabase
+            const { data: notesData, error: notesError } = await supabase
                 .from("notes")
-                .select("*, note_shares(profile_id)")
+                .select("*")
                 .in("id", sharedNoteIds);
             
-            if (sharedDataError) throw sharedDataError;
-            sharedNotes = sharedData as Note[];
+            if (notesError) throw notesError;
+            sharedNotesData = notesData as Note[];
         }
         
-        // Łączymy i usuwamy duplikaty
+        // 4. Płaskie zapytanie: Wszystkie udostępnienia (potrzebne do wyświetlenia ikony 'WSPÓŁPRACA' i zarządzania)
+        const allNoteIds = [...(myNotesData || []).map(n => n.id), ...sharedNoteIds];
+        let allShares: any[] = [];
+        if (allNoteIds.length > 0) {
+             const { data: shares, error: sharesError } = await supabase
+                .from("note_shares")
+                .select("note_id, profile_id")
+                .in("note_id", allNoteIds);
+            if (sharesError) throw sharesError;
+            allShares = shares;
+        }
+
+        // 5. Łączenie danych po stronie klienta
         const combinedMap = new Map<string, Note>();
-        [...(myNotes || []), ...sharedNotes].forEach(note => {
-            if (note) combinedMap.set(note.id, note);
+        
+        // Dodaj moje notatki
+        (myNotesData || []).forEach(note => {
+            combinedMap.set(note.id, { ...note, note_shares: [] });
+        });
+        
+        // Dodaj udostępnione notatki
+        (sharedNotesData || []).forEach(note => {
+            if (!combinedMap.has(note.id)) {
+                combinedMap.set(note.id, { ...note, note_shares: [] });
+            }
+        });
+        
+        // Dodaj informacje o udostępnieniach do każdej notatki
+        allShares.forEach(share => {
+            const note = combinedMap.get(share.note_id);
+            if (note) {
+                note.note_shares?.push({ profile_id: share.profile_id });
+            }
         });
         
         const combined = Array.from(combinedMap.values());
@@ -177,6 +206,7 @@ const NotesPage = () => {
         setNotes(combined.sort((a,b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()));
         
     } catch (error: any) {
+        // Wyświetlamy błąd, ale nie rzucamy go dalej, aby nie blokować aplikacji
         toast.error("Błąd ładowania notatek. Sprawdź konfigurację RLS: " + error.message);
         console.error("Error fetching notes:", error);
     } finally {
@@ -238,6 +268,7 @@ const NotesPage = () => {
     if (!deletingNoteId) return;
     setLoading(true);
     
+    // Usuwanie notatki powinno automatycznie usunąć powiązane udostępnienia (ON DELETE CASCADE w bazie)
     const { error } = await supabase.from("notes").delete().eq("id", deletingNoteId);
     
     if (error) toast.error("Błąd podczas usuwania: " + error.message);
