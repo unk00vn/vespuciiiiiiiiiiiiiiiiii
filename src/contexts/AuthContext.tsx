@@ -46,7 +46,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const { data: profileData, error: profileError } = await supabase
         .from("profiles")
         .select(`
-          id, email, badge_number, first_name, last_name, status, avatar_url,
+          id, email, badge_number, first_name, last_name, status, avatar_url, division_id,
           roles (id, name, level)
         `)
         .eq("id", userId)
