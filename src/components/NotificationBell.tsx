@@ -16,17 +16,19 @@ export const NotificationBell = () => {
 
   const fetchNotifications = async () => {
     if (!profile) return;
-    const { data } = await supabase.from("notifications").select("*").eq("user_id", profile.id).order("created_at", { ascending: false }).limit(20);
+    const { data } = await supabase
+      .from("notifications")
+      .select("*")
+      .eq("user_id", profile.id)
+      .order("created_at", { ascending: false })
+      .limit(20);
     setNotifications(data || []);
   };
 
   useEffect(() => {
     fetchNotifications();
-    const channel = supabase.channel('realtime_notifications')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${profile?.id}` }, () => {
-        fetchNotifications();
-      }).subscribe();
-    return () => { supabase.removeChannel(channel); };
+    // Realtime subskrypcja została usunięta zgodnie z wytycznymi.
+    // Dane aktualizują się tylko przy przeładowaniu strony.
   }, [profile]);
 
   const unreadCount = notifications.filter(n => !n.is_read).length;

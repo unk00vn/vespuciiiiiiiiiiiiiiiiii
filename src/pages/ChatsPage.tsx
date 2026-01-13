@@ -64,14 +64,25 @@ export const ChatsPage = () => {
   useEffect(() => {
     if (!activeChat) return;
     fetchMessages(activeChat.id);
+
+    // Subskrypcja Realtime działająca tylko gdy użytkownik jest w tej zakładce
     const channel = supabase.channel(`chat_${activeChat.id}`)
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages', filter: `chat_id=eq.${activeChat.id}` }, (p) => {
-        if (p.new.chat_id === activeChat.id) {
-            setMessages(prev => [...prev, p.new]);
-            setTimeout(scrollToBottom, 50);
+      .on('postgres_changes', { 
+        event: 'INSERT', 
+        schema: 'public', 
+        table: 'chat_messages', 
+        filter: `chat_id=eq.${activeChat.id}` 
+      }, (p) => {
+        // Dodajemy nową wiadomość tylko jeśli okno jest aktywne
+        if (document.visibilityState === 'visible') {
+          setMessages(prev => [...prev, p.new]);
+          setTimeout(scrollToBottom, 50);
         }
       }).subscribe();
-    return () => { supabase.removeChannel(channel); };
+
+    return () => { 
+      supabase.removeChannel(channel); 
+    };
   }, [activeChat]);
 
   const handleSendMessage = async () => {

@@ -5,26 +5,18 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { MessageCircle, Send, X, Loader2, Maximize2, Minimize2, CornerDownLeft, CornerDownRight, WifiOff } from "lucide-react";
+import { MessageCircle, Send, X, Loader2, Maximize2, Minimize2, WifiOff } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
-interface Message {
-  id: string;
-  user_name: string;
-  badge_number: string;
-  content: string;
-  created_at: string;
-}
-
 export const ChatWidget = () => {
   const { profile } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [isWide, setIsWide] = useState(false);
-  const [position, setPosition] = useState<'bottom-right' | 'bottom-left'>('bottom-right');
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [position] = useState<'bottom-right' | 'bottom-left'>('bottom-right');
+  const [messages, setMessages] = useState<any[]>([]);
   const [newMessage, setNewMessage] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -43,13 +35,6 @@ export const ChatWidget = () => {
     setIsLoading(true);
     setError(false);
 
-    const safetyTimeout = setTimeout(() => {
-      if (isLoading) {
-        setIsLoading(false);
-        setError(true);
-      }
-    }, 5000);
-
     try {
       const { data, error: sbError } = await supabase
         .from("chat_messages")
@@ -64,7 +49,6 @@ export const ChatWidget = () => {
       console.error("Chat fetch error:", err);
       setError(true);
     } finally {
-      clearTimeout(safetyTimeout);
       setIsLoading(false);
     }
   };
@@ -73,15 +57,30 @@ export const ChatWidget = () => {
     if (profile && isOpen) {
       fetchHistory();
 
+      // Subskrypcja Realtime działająca tylko gdy karta jest aktywna
+      const handleVisibilityChange = () => {
+        if (document.visibilityState === 'visible') {
+          fetchHistory();
+        }
+      };
+
+      document.addEventListener("visibilitychange", handleVisibilityChange);
+
       const channel = supabase
         .channel("public:chat_messages")
         .on("postgres_changes", { event: "INSERT", schema: "public", table: "chat_messages" }, (payload) => {
-          setMessages((prev) => [...prev, payload.new as Message]);
-          setTimeout(scrollToBottom, 50);
+          // Dodajemy wiadomość tylko jeśli karta jest aktywna
+          if (document.visibilityState === 'visible') {
+            setMessages((prev) => [...prev, payload.new]);
+            setTimeout(scrollToBottom, 50);
+          }
         })
         .subscribe();
 
-      return () => { supabase.removeChannel(channel); };
+      return () => { 
+        supabase.removeChannel(channel); 
+        document.removeEventListener("visibilitychange", handleVisibilityChange);
+      };
     }
   }, [profile, isOpen]);
 

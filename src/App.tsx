@@ -26,15 +26,16 @@ const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       retry: 2,
-      staleTime: 5 * 60 * 1000, // 5 minutes
-      cacheTime: 10 * 60 * 1000, // 10 minutes
+      staleTime: Infinity, // Dane nigdy nie stają się "stale" automatycznie
+      refetchOnWindowFocus: false, // Wyłączenie odświeżania przy powrocie do okna
+      refetchOnMount: false, // Pobieranie tylko raz przy montowaniu
+      refetchOnReconnect: false, // Wyłączenie odświeżania przy powrocie internetu
     },
   },
 });
 
 const App = () => {
   useEffect(() => {
-    // Test database connection on app start
     const testConnection = async () => {
       try {
         const result = await supabase.rpc('version');
