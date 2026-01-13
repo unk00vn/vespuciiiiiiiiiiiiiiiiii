@@ -9,9 +9,9 @@ CREATE TABLE attachments (
     file_type text NOT NULL,
     file_size integer NOT NULL,
     
-    -- Powiązania z innymi tabelami (tylko jedno może być ustawione)
+    -- Powiązania z innymi tabelami
     report_id uuid REFERENCES reports(id) ON DELETE SET NULL,
-    note_id uuid REFERENCES notes(id) ON DELETE SET NULL,
+    note_id integer REFERENCES notes(id) ON DELETE SET NULL, -- Zmieniono na INTEGER
     chat_id uuid REFERENCES chat_messages(id) ON DELETE SET NULL
 );
 
@@ -37,7 +37,6 @@ TO authenticated
 USING (auth.uid() = owner_id);
 
 -- Polityka: Użytkownik może usuwać swoje załączniki
-CREATE POLICY "Allow owners to delete their attachments"
 ON attachments FOR DELETE
 TO authenticated
 USING (auth.uid() = owner_id);
