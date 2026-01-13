@@ -28,7 +28,7 @@ export const useFileUpload = () => {
             const reader = new FileReader();
             reader.readAsDataURL(file);
             reader.onload = (event) => {
-                // Usuń prefiks 'data:image/webp;base64,'
+                // Usuń prefiks 'data:image/webp;base64,' - ImgBB oczekuje czystego Base64
                 const base64String = (reader.result as string).split(',')[1];
                 resolve(base64String);
             };
@@ -50,7 +50,7 @@ export const useFileUpload = () => {
         const fileToUpload = await compressImage(file, 0.7);
         updateProgress(30);
 
-        // 2. Konwersja do Base64
+        // 2. Konwersja do CZYSTEGO Base64
         const base64Image = await fileToBase64(fileToUpload);
         updateProgress(50);
 
@@ -71,19 +71,19 @@ export const useFileUpload = () => {
             throw new Error(uploadResult.error || "Błąd przesyłania do ImgBB.");
         }
 
-        const { fileUrl, displayUrl, size } = uploadResult;
+        // Używamy tylko fileUrl, który symuluje data.url
+        const { fileUrl, size } = uploadResult; 
         updateProgress(80);
 
         // 4. Zapisz metadane w Supabase (tylko jeśli to nie jest zdjęcie profilowe)
         if (options.isProfilePicture) {
-            // W przypadku zdjęcia profilowego, URL jest aktualizowany bezpośrednio w komponencie ProfilePage
             updateProgress(100);
-            return { fileUrl: fileUrl || displayUrl };
+            return { fileUrl: fileUrl };
         }
         
         const metadata: AttachmentMetadata = {
             ownerId: profile.id,
-            fileUrl: fileUrl || displayUrl,
+            fileUrl: fileUrl, // Zapisujemy data.url
             fileType: fileToUpload.type,
             fileSize: size,
             ...options,

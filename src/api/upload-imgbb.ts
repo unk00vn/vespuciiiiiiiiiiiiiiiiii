@@ -4,13 +4,8 @@
 
 // W środowisku Dyad/Vite, ten plik służy jako definicja oczekiwanego endpointu.
 
-import { toast } from "sonner";
-
-// W prawdziwej aplikacji, klucz API powinien być pobierany ze zmiennych środowiskowych serwera.
-// const IMGBB_API_KEY = process.env.IMGBB_API_KEY; 
-
 interface UploadImgBBRequest {
-    base64Image: string;
+    base64Image: string; // Czysty Base64 (bez nagłówka data:image/...)
     fileName: string;
     fileType: string;
     fileSize: number;
@@ -21,8 +16,7 @@ interface UploadImgBBRequest {
 }
 
 interface UploadImgBBResponse {
-    fileUrl: string;
-    displayUrl: string;
+    fileUrl: string; // Symuluje data.url z ImgBB
     size: number;
     error?: string;
 }
@@ -32,12 +26,14 @@ export async function uploadImgBB(reqBody: UploadImgBBRequest): Promise<UploadIm
     // W prawdziwej aplikacji, tutaj następuje walidacja i wysyłka do ImgBB
     
     // Symulacja odpowiedzi ImgBB
-    const simulatedUrl = `https://i.ibb.co/simulated/${reqBody.ownerId}/${reqBody.fileName.replace(/\s/g, '_')}`;
+    // Generujemy URL, który wygląda jak poprawny link do obrazu
+    const simulatedUrl = `https://i.ibb.co/lspd-vespucci/${reqBody.ownerId}/${Date.now()}_${reqBody.fileName.replace(/[^a-zA-Z0-9.]/g, '_')}`;
     
     // W tym miejscu powinieneś użyć fetch do API ImgBB:
     /*
     const formData = new FormData();
-    formData.append('image', reqBody.base64Image);
+    // ImgBB oczekuje czystego Base64
+    formData.append('image', reqBody.base64Image); 
     
     const imgbbResponse = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, {
         method: 'POST',
@@ -51,8 +47,7 @@ export async function uploadImgBB(reqBody: UploadImgBBRequest): Promise<UploadIm
     const imgbbData = await imgbbResponse.json();
     if (imgbbData.success) {
         return {
-            fileUrl: imgbbData.data.url,
-            displayUrl: imgbbData.data.display_url,
+            fileUrl: imgbbData.data.url, // Używamy data.url
             size: imgbbData.data.size,
         };
     } else {
@@ -63,11 +58,6 @@ export async function uploadImgBB(reqBody: UploadImgBBRequest): Promise<UploadIm
     // Zwracamy symulowaną odpowiedź dla frontendu
     return {
         fileUrl: simulatedUrl,
-        displayUrl: simulatedUrl,
         size: reqBody.fileSize,
     };
 }
-
-// W prawdziwej aplikacji, ten plik byłby endpointem, który przetwarza POST request z frontendu.
-// Ponieważ Dyad nie obsługuje backendu, musisz zaimplementować ten endpoint samodzielnie.
-// Frontend będzie wysyłał request do /api/files/upload-imgbb.
