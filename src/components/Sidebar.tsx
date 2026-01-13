@@ -75,7 +75,9 @@ export const Sidebar = ({ className }: { className?: string }) => {
       <div className="mt-auto pt-4 border-t border-lapd-gold/20">
         <div className="p-3 mb-4 bg-white/5 rounded border border-white/10">
           <p className="text-[10px] font-black text-lapd-gold uppercase">Zalogowano jako:</p>
-          <p className="text-sm font-bold text-white truncate">{profile?.last_name} (#{profile?.badge_number})</p>
+          <p className="text-sm font-bold text-white truncate">
+            {profile?.first_name} {profile?.last_name} (#{profile?.badge_number})
+          </p>
         </div>
         <Button
           variant="ghost"
