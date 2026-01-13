@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { saveAttachmentMetadata, AttachmentMetadata } from "@/utils/attachments";
 import { compressImage } from "@/utils/imageCompression";
-import { uploadImgBB } from "@/api/upload-imgbb"; // Importujemy symulowaną funkcję API
+import { uploadImgBB } from "@/api/upload-imgbb";
 
 interface UploadOptions {
     reportId?: string;
@@ -14,9 +14,7 @@ interface UploadOptions {
     isProfilePicture?: boolean;
 }
 
-// Limit rozmiaru pliku: 10MB
 const MAX_FILE_SIZE_MB = 10;
-const MAX_CONCURRENT_UPLOADS = 3;
 
 export const useFileUpload = () => {
     const { profile } = useAuth();
@@ -27,11 +25,7 @@ export const useFileUpload = () => {
         return new Promise((resolve, reject) => {
             const reader = new FileReader();
             reader.readAsDataURL(file);
-            reader.onload = (event) => {
-                // Usuń prefiks 'data:image/webp;base64,' - ImgBB oczekuje czystego Base64
-                const base64String = (reader.result as string).split(',')[1];
-                resolve(base64String);
-            };
+            reader.onload = () => resolve(reader.result as string);
             reader.onerror = (error) => reject(error);
         });
     };
@@ -39,59 +33,50 @@ export const useFileUpload = () => {
     const uploadSingleFile = useCallback(async (file: File, options: UploadOptions, updateProgress: (p: number) => void) => {
         if (!profile) throw new Error("Brak profilu użytkownika.");
         
-        const fileMB = file.size / (1024 * 1024);
-        if (fileMB > MAX_FILE_SIZE_MB) {
-            throw new Error(`Plik ${file.name} jest za duży (max ${MAX_FILE_SIZE_MB} MB).`);
-        }
-
         updateProgress(10);
         
-        // 1. Kompresja (do WebP)
-        const fileToUpload = await compressImage(file, 0.7);
+        // 1. Kompresja do WebP (0.7 quality dla optymalizacji)
+        const compressedFile = await compressImage(file, 0.7);
         updateProgress(30);
 
-        // 2. Konwersja do CZYSTEGO Base64
-        const base64Image = await fileToBase64(fileToUpload);
+        // 2. Konwersja do Base64 z nagłówkiem MIME
+        const base64WithMime = await fileToBase64(compressedFile);
         updateProgress(50);
 
-        // 3. Wysyłka do serwerowego endpointu (symulacja)
-        const requestBody = {
-            base64Image: base64Image,
-            fileName: fileToUpload.name,
-            fileType: fileToUpload.type,
-            fileSize: fileToUpload.size,
-            ownerId: profile.id,
-            ...options,
-        };
-
-        // W środowisku Dyad wywołujemy funkcję bezpośrednio
-        const uploadResult = await uploadImgBB(requestBody);
+        // 3. Upload do ImgBB
+        const uploadResult = await uploadImgBB({
+            base64Image: base64WithMime,
+            fileName: compressedFile.name,
+            fileType: compressedFile.type,
+            fileSize: compressedFile.size,
+            ownerId: profile.id
+        });
 
         if ('error' in uploadResult) {
-            throw new Error(uploadResult.error || "Błąd przesyłania do ImgBB.");
+            throw new Error(uploadResult.error);
         }
 
-        // Używamy tylko fileUrl, który symuluje data.url
-        const { fileUrl, size } = uploadResult; 
         updateProgress(80);
 
-        // 4. Zapisz metadane w Supabase (tylko jeśli to nie jest zdjęcie profilowe)
+        // 4. Zapisz metadane w Supabase (tylko dla załączników systemowych)
         if (options.isProfilePicture) {
             updateProgress(100);
-            return { fileUrl: fileUrl };
+            return { fileUrl: uploadResult.fileUrl };
         }
         
         const metadata: AttachmentMetadata = {
             ownerId: profile.id,
-            fileUrl: fileUrl, // Zapisujemy data.url
-            fileType: fileToUpload.type,
-            fileSize: size,
-            ...options,
+            fileUrl: uploadResult.fileUrl, // Zapisujemy bezpośredni link z ImgBB
+            fileType: compressedFile.type,
+            fileSize: uploadResult.size,
+            reportId: options.reportId,
+            noteId: options.noteId,
+            chatId: options.chatId,
         };
 
         const { data: attachmentData, error: metadataError } = await saveAttachmentMetadata(metadata);
         
-        if (metadataError) throw new Error("Błąd zapisu metadanych.");
+        if (metadataError) throw new Error("Błąd zapisu metadanych w bazie.");
 
         updateProgress(100);
         return attachmentData;
@@ -100,65 +85,28 @@ export const useFileUpload = () => {
 
     const uploadFiles = useCallback(async (files: File[], options: UploadOptions) => {
         if (!profile) {
-            toast.error("Musisz być zalogowany, aby przesyłać pliki.");
+            toast.error("Zaloguj się, aby przesyłać pliki.");
             return [];
         }
 
         setIsUploading(true);
-        const totalFiles = files.length;
         const results: any[] = [];
-        let completedFiles = 0;
         
-        const filePromises = files.map((file, index) => async () => {
-            let fileToastId: string | number = '';
+        for (let i = 0; i < files.length; i++) {
+            const file = files[i];
+            const toastId = toast.loading(`Przesyłanie: ${file.name}...`);
+            
             try {
-                fileToastId = toast.loading(`Przesyłanie pliku ${index + 1}/${totalFiles}: ${file.name}...`);
-                
                 const result = await uploadSingleFile(file, options, (p) => {
-                    // Aktualizacja globalnego paska postępu
-                    const baseProgress = (index / totalFiles) * 100;
-                    const currentFileProgress = p / totalFiles;
-                    setProgress(Math.min(99, Math.floor(baseProgress + currentFileProgress)));
+                    setProgress(Math.floor(((i / files.length) * 100) + (p / files.length)));
                 });
-                
-                if (result) {
-                    results.push(result);
-                    toast.success(`Plik ${index + 1}/${totalFiles} przesłany.`, { id: fileToastId });
-                }
+                results.push(result);
+                toast.success(`Przesłano: ${file.name}`, { id: toastId });
             } catch (error: any) {
-                toast.error(error.message || `Błąd uploadu pliku ${index + 1}/${totalFiles}.`, { id: fileToastId });
-            } finally {
-                completedFiles++;
-                if (completedFiles === totalFiles) {
-                    setIsUploading(false);
-                    setProgress(100);
-                    setTimeout(() => setProgress(0), 1000);
-                }
+                toast.error(`Błąd (${file.name}): ${error.message}`, { id: toastId });
             }
-        });
-
-        // Uruchomienie równoległe z limitem
-        const concurrentUploads = Math.min(totalFiles, MAX_CONCURRENT_UPLOADS);
-        const runningPromises: Promise<void>[] = [];
-        let fileIndex = 0;
-
-        const runNext = () => {
-            if (fileIndex < totalFiles) {
-                const promise = filePromises[fileIndex]().then(() => {
-                    runningPromises.splice(runningPromises.indexOf(promise), 1);
-                    runNext();
-                });
-                runningPromises.push(promise);
-                fileIndex++;
-            }
-        };
-
-        for (let i = 0; i < concurrentUploads; i++) {
-            runNext();
         }
 
-        await Promise.all(runningPromises);
-        
         setIsUploading(false);
         setProgress(0);
         return results;

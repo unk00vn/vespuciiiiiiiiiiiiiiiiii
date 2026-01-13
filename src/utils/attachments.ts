@@ -19,15 +19,15 @@ export async function saveAttachmentMetadata(metadata: AttachmentMetadata) {
             file_url: metadata.fileUrl,
             file_type: metadata.fileType,
             file_size: metadata.fileSize,
-            report_id: metadata.reportId,
-            note_id: metadata.noteId,
-            chat_id: metadata.chatId,
+            report_id: metadata.reportId || null,
+            note_id: metadata.noteId ? parseInt(metadata.noteId as any) : null,
+            chat_id: metadata.chatId || null,
         })
         .select()
         .single();
 
     if (error) {
-        toast.error("Błąd zapisu metadanych: " + error.message);
+        console.error("Supabase metadata error:", error);
         return { data: null, error };
     }
 
