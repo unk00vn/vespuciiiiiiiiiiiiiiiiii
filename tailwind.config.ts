@@ -62,6 +62,10 @@ export default {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
+        // Custom LAPD colors
+        'lapd-navy': '#0A1A2F',
+        'lapd-gold': '#C9A635',
+        'lapd-white': '#FFFFFF',
       },
       borderRadius: {
         lg: "var(--radius)",
