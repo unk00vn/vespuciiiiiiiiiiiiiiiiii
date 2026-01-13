@@ -16,9 +16,9 @@ export interface UserProfile {
   role_id: number;
   role_name: UserRole;
   role_level: number;
-  divisions: { id: number; name: string }[];
   status: "pending" | "approved" | "rejected";
   avatar_url?: string;
+  division_id?: number;
 }
 
 interface AuthContextType {
@@ -26,11 +26,10 @@ interface AuthContextType {
   user: User | null;
   profile: UserProfile | null;
   loading: boolean;
-  error: string | null;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signUp: (email: string, password: string, badgeNumber: string) => Promise<{ error: any }>;
-  signOut: () => Promise<{ error: any }>;
-  fetchUserProfile: (userId: string) => Promise<UserProfile | null>;
+  signOut: () => Promise<void>;
+  refreshProfile: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -40,132 +39,80 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
 
-  const fetchUserProfile = async (userId: string): Promise<UserProfile | null> => {
-    try {
-      const { data: profileData, error: profileError } = await supabase
-        .from("profiles")
-        .select(`
-          id, email, badge_number, first_name, last_name, status, avatar_url,
-          roles (id, name, level)
-        `)
-        .eq("id", userId)
-        .single();
+  const fetchProfile = async (userId: string) => {
+    const { data, error } = await supabase
+      .from("profiles")
+      .select(`*, roles(name, level)`)
+      .eq("id", userId)
+      .single();
 
-      if (profileError || !profileData) return null;
+    if (error || !data) return null;
 
-      const { data: divData } = await supabase
-        .from("profile_divisions")
-        .select("divisions(id, name)")
-        .eq("profile_id", userId);
-
-      const divisions = divData?.map((d: any) => d.divisions).filter(Boolean) || [];
-
-      return {
-        ...profileData,
-        role_id: (profileData as any).roles.id,
-        role_name: (profileData as any).roles.name as UserRole,
-        role_level: (profileData as any).roles.level,
-        divisions: divisions as any,
-      };
-    } catch (e) {
-      console.error("[Auth] Profile fetch error:", e);
-      return null;
-    }
+    return {
+      ...data,
+      role_name: (data as any).roles.name as UserRole,
+      role_level: (data as any).roles.level,
+    } as UserProfile;
   };
 
   useEffect(() => {
-    let isMounted = true;
-
-    // Główna funkcja inicjalizująca - pobiera sesję raz przy starcie
-    const initSession = async () => {
-      try {
-        const { data: { session: initialSession }, error: sessionError } = await supabase.auth.getSession();
-        
-        if (sessionError) throw sessionError;
-
-        if (isMounted) {
-          setSession(initialSession);
-          setUser(initialSession?.user || null);
-          
-          if (initialSession?.user) {
-            const userProfile = await fetchUserProfile(initialSession.user.id);
-            if (isMounted) setProfile(userProfile);
-          }
-        }
-      } catch (err: any) {
-        console.error("[Auth] Initialization error:", err);
-        if (isMounted) setError(err.message);
-      } finally {
-        if (isMounted) setLoading(false);
+    supabase.auth.getSession().then(({ data: { session: initialSession } }) => {
+      setSession(initialSession);
+      setUser(initialSession?.user || null);
+      if (initialSession?.user) {
+        fetchProfile(initialSession.user.id).then(setProfile);
       }
-    };
+      setLoading(false);
+    });
 
-    initSession();
-
-    // Słuchacz zmian stanu autoryzacji (Login/Logout/Token Refresh)
-    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, currentSession) => {
-      console.log(`[Auth] Event: ${event}`);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, currentSession) => {
+      setSession(currentSession);
+      setUser(currentSession?.user || null);
       
-      if (isMounted) {
-        setSession(currentSession);
-        setUser(currentSession?.user || null);
-        
-        if (currentSession?.user) {
-          const userProfile = await fetchUserProfile(currentSession.user.id);
-          if (isMounted) setProfile(userProfile);
-        } else {
-          if (isMounted) setProfile(null);
-        }
+      if (event === 'SIGNED_IN' && currentSession?.user) {
+        const p = await fetchProfile(currentSession.user.id);
+        setProfile(p);
+      } else if (event === 'SIGNED_OUT') {
+        setProfile(null);
       }
     });
 
-    return () => {
-      isMounted = false;
-      authListener.subscription.unsubscribe();
-    };
+    return () => subscription.unsubscribe();
   }, []);
 
   const signIn = async (email: string, password: string) => {
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) toast.error(error.message);
-    return { error };
+    const res = await supabase.auth.signInWithPassword({ email, password });
+    if (res.error) toast.error("Błąd logowania: " + res.error.message);
+    return res;
   };
 
   const signUp = async (email: string, password: string, badgeNumber: string) => {
-    const { data, error } = await supabase.auth.signUp({ email, password });
-    if (error) {
-      toast.error(error.message);
-      return { error };
-    }
-
-    // Dodanie profilu bezpośrednio po rejestracji (Fallback dla triggera DB)
-    const { data: roleData } = await supabase.from("roles").select("id").eq("name", "Officer").single();
-    await supabase.from("profiles").upsert({
-      id: data.user?.id,
-      email,
-      badge_number: badgeNumber,
-      role_id: roleData?.id || 1,
-      status: "pending"
+    const res = await supabase.auth.signUp({ 
+      email, 
+      password, 
+      options: { data: { badge_number: badgeNumber } } 
     });
-
-    toast.info("Account created. Awaiting approval.");
-    return { error: null };
+    if (res.error) toast.error("Błąd rejestracji: " + res.error.message);
+    else toast.success("Konto utworzone. Oczekiwanie na akceptację.");
+    return res;
   };
 
   const signOut = async () => {
-    const { error } = await supabase.auth.signOut();
-    setProfile(null);
-    setUser(null);
-    setSession(null);
+    await supabase.auth.signOut();
     navigate("/login");
-    return { error };
+  };
+
+  const refreshProfile = async () => {
+    if (user) {
+      const p = await fetchProfile(user.id);
+      setProfile(p);
+    }
   };
 
   return (
-    <AuthContext.Provider value={{ session, user, profile, loading, error, signIn, signUp, signOut, fetchUserProfile }}>
+    <AuthContext.Provider value={{ session, user, profile, loading, signIn, signUp, signOut, refreshProfile }}>
       {children}
     </AuthContext.Provider>
   );
@@ -180,28 +127,22 @@ export const useAuth = () => {
 export const ProtectedRoute = ({ children, allowedRoles }: { children: ReactNode; allowedRoles?: UserRole[] }) => {
   const { user, profile, loading } = useAuth();
 
-  if (loading) {
+  if (loading) return <div className="min-h-screen bg-lapd-navy flex items-center justify-center text-lapd-gold">AUTORYZACJA...</div>;
+  if (!user) return <Navigate to="/login" replace />;
+  
+  if (profile?.status === "pending") {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-lapd-navy text-lapd-gold font-mono">
-        <div className="h-10 w-10 border-t-2 border-lapd-gold animate-spin rounded-full mb-4"></div>
-        <p className="animate-pulse">CONNECTING TO LSPD TERMINAL...</p>
+      <div className="min-h-screen bg-lapd-navy flex flex-col items-center justify-center text-white p-8">
+        <h2 className="text-2xl font-black text-lapd-gold uppercase mb-4 tracking-tighter">DOSTĘP ZABLOKOWANY</h2>
+        <p className="text-slate-400 text-center max-w-md">Twoje konto (#{(profile as any).badge_number}) oczekuje na weryfikację przez High Command.</p>
+        <Button onClick={() => window.location.reload()} className="mt-8 bg-lapd-gold text-lapd-navy font-bold">SPRAWDŹ PONOWNIE</Button>
       </div>
     );
   }
 
-  if (!user) return <Navigate to="/login" replace />;
-  if (profile?.status === "pending") {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-lapd-navy text-white p-6 text-center">
-        <h2 className="text-lapd-gold font-black text-2xl mb-4">ACCESS RESTRICTED</h2>
-        <p className="text-slate-300">Your account is currently pending approval by High Command.</p>
-        <Button onClick={() => window.location.reload()} className="mt-8 bg-lapd-gold text-lapd-navy font-bold">RE-CHECK STATUS</Button>
-      </div>
-    );
+  if (allowedRoles && profile && !allowedRoles.includes(profile.role_name)) {
+    return <Navigate to="/" replace />;
   }
-  
-  if (!profile || profile.status === "rejected") return <Navigate to="/login" replace />;
-  if (allowedRoles && !allowedRoles.includes(profile.role_name)) return <Navigate to="/" replace />;
 
   return <>{children}</>;
 };
