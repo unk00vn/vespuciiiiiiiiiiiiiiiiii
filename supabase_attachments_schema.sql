@@ -1,23 +1,29 @@
--- Tabela załączników
-CREATE TABLE IF NOT EXISTS attachments (
-    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-    owner_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
-    file_url TEXT NOT NULL,
-    file_type TEXT NOT NULL,
-    file_size INTEGER NOT NULL,
-    report_id UUID REFERENCES reports(id) ON DELETE CASCADE,
-    note_id UUID REFERENCES notes(id) ON DELETE CASCADE,
-    chat_id UUID, -- Opcjonalnie pod czaty
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+-- Tabela do przechowywania załączników (plików)
+CREATE TABLE IF NOT EXISTS public.attachments (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    
+    -- Metadane pliku
+    owner_id uuid REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+    file_url text NOT NULL,
+    file_type text NOT NULL,
+    file_size bigint NOT NULL,
+    
+    -- Relacje do innych tabel (może być NULL, jeśli plik jest tymczasowy lub nieprzypisany)
+    report_id uuid REFERENCES public.reports(id) ON DELETE CASCADE,
+    note_id uuid REFERENCES public.notes(id) ON DELETE CASCADE,
+    chat_id uuid REFERENCES public.chat_messages(id) ON DELETE CASCADE
 );
 
--- Indeksy dla wydajności
-CREATE INDEX IF NOT EXISTS idx_attachments_report ON attachments(report_id);
-CREATE INDEX IF NOT EXISTS idx_attachments_note ON attachments(note_id);
+ALTER TABLE public.attachments ENABLE ROW LEVEL SECURITY;
 
--- Włączenie RLS
-ALTER TABLE attachments ENABLE ROW LEVEL SECURITY;
+-- Polityka: Właściciel może widzieć i modyfikować swoje załączniki
+CREATE POLICY "Owners can manage their attachments"
+ON public.attachments
+FOR ALL
+USING (auth.uid() = owner_id)
+WITH CHECK (auth.uid() = owner_id);
 
--- Polityka: Każdy może widzieć załączniki, do których ma dostęp (uproszczone)
-CREATE POLICY "Public Access" ON attachments FOR SELECT USING (true);
-CREATE POLICY "Owners can insert" ON attachments FOR INSERT WITH CHECK (auth.uid() = owner_id);
+-- Polityka: Użytkownicy mogą widzieć załączniki, jeśli mają dostęp do raportu/notatki (wymaga bardziej złożonej logiki RLS, ale na razie wystarczy, że właściciel widzi)
+-- W praktyce, dostęp do załączników powinien być kontrolowany przez dostęp do nadrzędnego raportu/notatki.
+-- Na potrzeby tego projektu, skupiamy się na tym, że właściciel może zarządzać swoimi plikami.
