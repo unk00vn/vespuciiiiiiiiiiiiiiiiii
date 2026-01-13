@@ -24,6 +24,7 @@ const ReportsPage = () => {
     setLoading(true);
     setError(false);
 
+    // Safety timeout: 7 seconds
     const safetyTimeout = setTimeout(() => {
       if (loading) {
         setLoading(false);

@@ -8,10 +8,9 @@ import { ReportStatsChart } from "@/components/ReportStatsChart";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
-import { LoadingSpinner } from "@/components/LoadingSpinner";
 
 const Dashboard = () => {
-  const { profile, loading: authLoading, error: authError } = useAuth();
+  const { profile } = useAuth();
   const [stats, setStats] = useState({ 
     reportsToReview: 0, 
     totalOfficers: 0, 
@@ -26,7 +25,7 @@ const Dashboard = () => {
     setLoading(true);
     setError(null);
     
-    // Safety timeout
+    // Safety timeout: stop loader after 8 seconds
     const timeout = setTimeout(() => {
       if (loading) {
         setLoading(false);
@@ -63,47 +62,10 @@ const Dashboard = () => {
   };
 
   useEffect(() => {
-    if (profile && !authLoading) {
+    if (profile) {
       fetchStats();
     }
-  }, [profile, authLoading]);
-
-  if (authLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-lapd-navy">
-        <LoadingSpinner message="Loading dashboard..." size="lg" />
-      </div>
-    );
-  }
-
-  if (authError) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-lapd-navy p-4">
-        <div className="bg-red-500/10 border border-red-500/50 p-8 rounded-lg max-w-md text-center">
-          <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-red-500 mb-4">Authentication Error</h2>
-          <p className="text-slate-300 mb-6">{authError}</p>
-          <Button 
-            onClick={() => window.location.reload()} 
-            className="bg-lapd-gold text-lapd-navy font-black"
-          >
-            Retry Connection
-          </Button>
-        </div>
-      </div>
-    );
-  }
-
-  if (!profile) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-lapd-navy">
-        <div className="text-center">
-          <AlertTriangle className="h-12 w-12 text-lapd-gold mx-auto mb-4" />
-          <p className="text-lapd-gold">Please log in to access the dashboard</p>
-        </div>
-      </div>
-    );
-  }
+  }, [profile]);
 
   return (
     <div className="flex flex-col gap-8 max-w-7xl mx-auto">
@@ -116,7 +78,7 @@ const Dashboard = () => {
             LSPD Central Terminal • Secure Connection Established
           </p>
         </div>
-        {(error || authError) && (
+        {error && (
           <Button 
             onClick={fetchStats} 
             variant="outline" 
