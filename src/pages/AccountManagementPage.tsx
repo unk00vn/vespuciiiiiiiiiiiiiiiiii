@@ -42,13 +42,22 @@ const AccountManagementPage = () => {
 
   const fetchAllData = async () => {
     setLoading(true);
+    
+    // Funkcja sortująca statusy: pending (1), approved (2), rejected (3)
+    const statusOrder = (status: string) => {
+      if (status === "pending") return 1;
+      if (status === "approved") return 2;
+      return 3;
+    };
+
     const { data: profilesData, error: profilesError } = await supabase
       .from("profiles")
       .select(`
         id, email, badge_number, first_name, last_name, status, avatar_url,
         roles (id, name, level),
         divisions (id, name)
-      `);
+      `)
+      .order("badge_number", { ascending: true }); // Sortowanie po numerze odznaki
 
     const { data: rolesData, error: rolesError } = await supabase
       .from("roles")
@@ -72,10 +81,11 @@ const AccountManagementPage = () => {
         role_name: p.roles.name as UserRole,
         role_level: p.roles.level,
         division_id: p.divisions?.id || undefined,
-        division_name: p.divisions?.name || undefined, // Dodano division_name
+        division_name: p.divisions?.name || undefined,
         status: p.status as "pending" | "approved" | "rejected",
         avatar_url: p.avatar_url || undefined,
-      }));
+      })).sort((a, b) => statusOrder(a.status) - statusOrder(b.status)); // Sortowanie po statusie
+      
       setProfiles(formattedProfiles);
     }
 
@@ -109,7 +119,7 @@ const AccountManagementPage = () => {
       toast.error("Błąd podczas zmiany statusu: " + error.message);
       console.error("Error updating status:", error);
     } else {
-      toast.success(`Status użytkownika zaktualizowany na: ${newStatus}`);
+      toast.success(`Status użytkownika zaktualizowany na: ${newStatus === 'approved' ? 'zatwierdzony' : 'odrzucony'}`);
       fetchAllData(); // Refresh data
     }
   };
@@ -200,6 +210,7 @@ const AccountManagementPage = () => {
                       <Select
                         value={profile.role_id.toString()}
                         onValueChange={(value) => handleRoleChange(profile.id, value)}
+                        disabled={profile.status !== "approved"} // Wyłącz edycję roli dla niezatwierdzonych
                       >
                         <SelectTrigger className="w-[180px] border-lapd-gold text-lapd-navy">
                           <SelectValue placeholder="Wybierz rolę" />
@@ -217,6 +228,7 @@ const AccountManagementPage = () => {
                       <Select
                         value={profile.division_id?.toString() || ""}
                         onValueChange={(value) => handleDivisionChange(profile.id, value)}
+                        disabled={profile.status !== "approved"} // Wyłącz edycję dywizji dla niezatwierdzonych
                       >
                         <SelectTrigger className="w-[180px] border-lapd-gold text-lapd-navy">
                           <SelectValue placeholder="Wybierz dywizję" />
