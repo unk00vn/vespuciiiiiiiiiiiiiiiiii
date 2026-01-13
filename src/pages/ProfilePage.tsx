@@ -72,7 +72,7 @@ const ProfilePage = () => {
   };
 
   if (loading || !profile) {
-    return <div className="text-center p-20">Ładowanie profilu...</div>;
+    return <div className="text-center p-20 text-white">Ładowanie profilu...</div>;
   }
 
   return (
@@ -122,23 +122,23 @@ const ProfilePage = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <Label className="text-lapd-navy flex items-center mb-1"><Mail className="h-4 w-4 mr-2" /> Email</Label>
-              <Input value={profile.email} readOnly className="bg-gray-50 border-lapd-gold" />
+              <Input value={profile.email} readOnly className="bg-gray-100 border-lapd-gold text-lapd-navy" />
             </div>
             <div>
               <Label className="text-lapd-navy flex items-center mb-1"><Briefcase className="h-4 w-4 mr-2" /> Odznaka</Label>
-              <Input value={profile.badge_number} readOnly className="bg-gray-50 border-lapd-gold font-bold" />
+              <Input value={profile.badge_number} readOnly className="bg-gray-100 border-lapd-gold font-bold text-lapd-navy" />
             </div>
             <div>
               <Label className="text-lapd-navy flex items-center mb-1"><UserIcon className="h-4 w-4 mr-2" /> Imię</Label>
-              <Input value={firstName} onChange={(e) => setFirstName(e.target.value)} readOnly={!isEditing} className="border-lapd-gold" />
+              <Input value={firstName} onChange={(e) => setFirstName(e.target.value)} readOnly={!isEditing} className="border-lapd-gold text-lapd-navy" />
             </div>
             <div>
               <Label className="text-lapd-navy flex items-center mb-1"><UserIcon className="h-4 w-4 mr-2" /> Nazwisko</Label>
-              <Input value={lastName} onChange={(e) => setLastName(e.target.value)} readOnly={!isEditing} className="border-lapd-gold" />
+              <Input value={lastName} onChange={(e) => setLastName(e.target.value)} readOnly={!isEditing} className="border-lapd-gold text-lapd-navy" />
             </div>
           </div>
 
-          <div className="border-t border-gray-100 pt-6">
+          <div className="border-t border-gray-200 pt-6">
             <Label className="text-lapd-navy flex items-center mb-3 text-lg font-bold">
               <Users className="h-5 w-5 mr-2 text-lapd-gold" /> Przynależność do Dywizji
             </Label>
@@ -150,7 +150,7 @@ const ProfilePage = () => {
                   </Badge>
                 ))
               ) : (
-                <p className="text-gray-400 italic text-sm">Brak przypisanych dywizji specjalistycznych.</p>
+                <p className="text-gray-500 italic text-sm">Brak przypisanych dywizji specjalistycznych.</p>
               )}
             </div>
           </div>

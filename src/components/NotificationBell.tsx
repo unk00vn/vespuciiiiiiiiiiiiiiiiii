@@ -8,6 +8,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "sonner";
 
 export const NotificationBell = () => {
   const { profile } = useAuth();
@@ -34,6 +35,16 @@ export const NotificationBell = () => {
     if (!profile) return;
     await supabase.from("notifications").update({ is_read: true }).eq("user_id", profile.id);
     fetchNotifications();
+  };
+  
+  const deleteNotification = async (id: string) => {
+    const { error } = await supabase.from("notifications").delete().eq("id", id);
+    if (error) {
+      toast.error("Błąd usuwania powiadomienia.");
+    } else {
+      setNotifications(prev => prev.filter(n => n.id !== id));
+      toast.success("Powiadomienie usunięte.");
+    }
   };
 
   const getIcon = (type: string) => {
@@ -67,7 +78,7 @@ export const NotificationBell = () => {
           ) : (
             <div className="divide-y divide-white/5">
               {notifications.map((n) => (
-                <div key={n.id} className={`p-4 transition-colors ${!n.is_read ? 'bg-white/5' : 'opacity-60'}`}>
+                <div key={n.id} className={`p-4 transition-colors flex justify-between items-start group ${!n.is_read ? 'bg-white/5' : 'opacity-60'}`}>
                   <div className="flex items-start gap-3">
                     <div className="mt-1">{getIcon(n.type)}</div>
                     <div>
@@ -76,6 +87,14 @@ export const NotificationBell = () => {
                       <p className="text-[8px] text-slate-600 mt-2 font-mono">{new Date(n.created_at).toLocaleString()}</p>
                     </div>
                   </div>
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="h-6 w-6 text-slate-500 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                    onClick={() => deleteNotification(n.id)}
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
                 </div>
               ))}
             </div>

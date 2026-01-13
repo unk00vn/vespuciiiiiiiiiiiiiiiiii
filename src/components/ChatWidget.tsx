@@ -5,7 +5,7 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { MessageCircle, Send, X, Loader2, Maximize2, Minimize2 } from "lucide-react";
+import { MessageCircle, Send, X, Loader2, Maximize2, Minimize2, CornerDownLeft, CornerDownRight } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
@@ -19,10 +19,13 @@ interface Message {
   created_at: string;
 }
 
+type ChatPosition = 'bottom-right' | 'bottom-left';
+
 export const ChatWidget = () => {
   const { profile } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [isWide, setIsWide] = useState(false); // Tryb leżący/pionowy
+  const [position, setPosition] = useState<ChatPosition>('bottom-right');
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState("");
   const [isSending, setIsSending] = useState(false);
@@ -70,7 +73,7 @@ export const ChatWidget = () => {
 
   useEffect(() => {
     if (isOpen) setTimeout(scrollToBottom, 100);
-  }, [isOpen, messages.length, isWide]);
+  }, [isOpen, messages.length, isWide, position]);
 
   const handleSendMessage = async () => {
     if (newMessage.trim() === "" || !profile || isSending) return;
@@ -88,10 +91,17 @@ export const ChatWidget = () => {
 
   if (!profile) return null;
 
+  const baseClasses = "fixed bottom-6 bg-lapd-darker border-2 border-lapd-gold shadow-2xl z-50 flex flex-col transition-all duration-300";
+  const positionClasses = position === 'bottom-right' ? 'right-6' : 'left-6';
+  const sizeClasses = isWide ? "w-[600px] h-[350px]" : "w-80 h-[500px]";
+
   if (!isOpen) {
     return (
       <Button
-        className="fixed bottom-6 right-6 rounded-full h-14 w-14 bg-lapd-gold text-lapd-navy hover:bg-yellow-600 shadow-xl z-50"
+        className={cn(
+          "fixed bottom-6 rounded-full h-14 w-14 bg-lapd-gold text-lapd-navy hover:bg-yellow-600 shadow-xl z-50",
+          position === 'bottom-right' ? 'right-6' : 'left-6'
+        )}
         onClick={() => setIsOpen(true)}
       >
         <MessageCircle className="h-6 w-6" />
@@ -100,10 +110,7 @@ export const ChatWidget = () => {
   }
 
   return (
-    <Card className={cn(
-      "fixed bottom-6 right-6 bg-lapd-darker border-2 border-lapd-gold shadow-2xl z-50 flex flex-col transition-all duration-300",
-      isWide ? "w-[600px] h-[350px]" : "w-80 h-[500px]"
-    )}>
+    <Card className={cn(baseClasses, positionClasses, sizeClasses)}>
       <CardHeader className="flex flex-row items-center justify-between p-3 bg-lapd-navy border-b border-lapd-gold/30">
         <CardTitle className="text-white text-[10px] font-black flex items-center uppercase tracking-tighter">
           <div className="h-2 w-2 rounded-full mr-2 bg-green-500 animate-pulse" />
@@ -112,6 +119,9 @@ export const ChatWidget = () => {
         <div className="flex gap-1">
           <Button variant="ghost" size="icon" className="h-6 w-6 text-slate-400 hover:text-white" onClick={() => setIsWide(!isWide)}>
             {isWide ? <Minimize2 className="h-3 w-3" /> : <Maximize2 className="h-3 w-3" />}
+          </Button>
+          <Button variant="ghost" size="icon" className="h-6 w-6 text-slate-400 hover:text-white" onClick={() => setPosition(p => p === 'bottom-right' ? 'bottom-left' : 'bottom-right')}>
+            {position === 'bottom-right' ? <CornerDownLeft className="h-3 w-3" /> : <CornerDownRight className="h-3 w-3" />}
           </Button>
           <Button variant="ghost" size="icon" className="h-6 w-6 text-slate-400 hover:text-red-500" onClick={() => setIsOpen(false)}>
             <X className="h-4 w-4" />

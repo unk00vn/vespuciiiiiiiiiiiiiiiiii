@@ -118,7 +118,7 @@ const DivisionsPage = () => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-lapd-navy">Dywizje LSPD</h1>
-          <p className="text-slate-300">Przeglądaj i zarządzaj jednostkami specjalistycznymi.</p>
+          <p className="text-slate-700">Przeglądaj i zarządzaj jednostkami specjalistycznymi.</p>
         </div>
         {isHC && (
           <Button 
@@ -137,7 +137,7 @@ const DivisionsPage = () => {
             <Users className="h-5 w-5 mr-2" />
             Struktura Jednostek
           </CardTitle>
-          <CardDescription className="text-slate-300">
+          <CardDescription className="text-slate-700">
             Poniżej znajduje się lista wszystkich aktywnych dywizji w departamencie.
           </CardDescription>
         </CardHeader>
@@ -162,8 +162,8 @@ const DivisionsPage = () => {
                     <TableRow key={division.id} className="hover:bg-gray-50">
                       <TableCell className="font-mono text-center text-gray-500">{division.id}</TableCell>
                       <TableCell className="font-bold text-lapd-navy">{division.name}</TableCell>
-                      <TableCell className="text-slate-300 text-sm max-w-md">
-                        {division.description || <span className="text-gray-400 italic">Brak opisu</span>}
+                      <TableCell className="text-slate-700 text-sm max-w-md">
+                        {division.description || <span className="text-gray-500 italic">Brak opisu</span>}
                       </TableCell>
                       {isHC && (
                         <TableCell className="text-right">
@@ -200,7 +200,7 @@ const DivisionsPage = () => {
             <DialogTitle className="text-lapd-navy uppercase font-black">
               {isEditing ? "Edytuj Dywizję" : "Nowa Dywizja"}
             </DialogTitle>
-            <DialogDescription>
+            <DialogDescription className="text-slate-700">
               Wprowadź dane dywizji. Zmiany będą widoczne dla wszystkich funkcjonariuszy.
             </DialogDescription>
           </DialogHeader>

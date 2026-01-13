@@ -107,7 +107,7 @@ const PersonnelPage = () => {
               ) : (
                 users.map(u => (
                   <TableRow key={u.id} className="hover:bg-gray-50">
-                    <TableCell className="font-bold">#{u.badge_number} {u.first_name} {u.last_name}</TableCell>
+                    <TableCell className="font-bold text-lapd-navy">#{u.badge_number} {u.first_name} {u.last_name}</TableCell>
                     <TableCell><Badge variant="outline" className="border-lapd-navy text-lapd-navy">{u.role_name}</Badge></TableCell>
                     <TableCell>
                       <div className="flex flex-wrap gap-1">
@@ -117,7 +117,7 @@ const PersonnelPage = () => {
                     <TableCell className="text-right px-6 space-x-2">
                       <OfficerDossier targetOfficer={u} />
                       {isEditor && (
-                        <Button variant="ghost" size="sm" onClick={() => openEdit(u)} className="hover:bg-lapd-gold/20">
+                        <Button variant="ghost" size="sm" onClick={() => openEdit(u)} className="hover:bg-lapd-gold/20 text-lapd-navy">
                           <Edit className="h-4 w-4" />
                         </Button>
                       )}
@@ -137,7 +137,7 @@ const PersonnelPage = () => {
             {divisions.map(d => (
               <div key={d.id} className="flex items-center space-x-3 p-2 hover:bg-gray-50 rounded">
                 <Checkbox id={`div-${d.id}`} checked={selectedDivisions.includes(d.id)} onCheckedChange={(checked) => setSelectedDivisions(prev => checked ? [...prev, d.id] : prev.filter(id => id !== d.id))} />
-                <Label htmlFor={`div-${d.id}`} className="font-medium cursor-pointer flex-1">{d.name}</Label>
+                <Label htmlFor={`div-${d.id}`} className="font-medium cursor-pointer flex-1 text-lapd-navy">{d.name}</Label>
               </div>
             ))}
           </div>
