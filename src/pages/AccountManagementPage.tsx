@@ -33,9 +33,15 @@ interface Division {
   name: string;
 }
 
+// Definicja lokalnego typu profilu, który zawiera division_id i division_name (dla zarządzania główną dywizją)
+interface LocalProfile extends Omit<UserProfile, 'divisions'> {
+  division_id?: number;
+  division_name?: string;
+}
+
 const AccountManagementPage = () => {
   const { profile: currentUserProfile } = useAuth();
-  const [profiles, setProfiles] = useState<UserProfile[]>([]);
+  const [profiles, setProfiles] = useState<LocalProfile[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
   const [divisions, setDivisions] = useState<Division[]>([]);
   const [loading, setLoading] = useState(true);
@@ -50,15 +56,6 @@ const AccountManagementPage = () => {
       return 3;
     };
 
-    const { data: profilesData, error: profilesError } = await supabase
-      .from("profiles")
-      .select(`
-        id, email, badge_number, first_name, last_name, status, avatar_url,
-        roles (id, name, level),
-        divisions (id, name)
-      `)
-      .order("badge_number", { ascending: true }); // Sortowanie po numerze odznaki
-
     const { data: rolesData, error: rolesError } = await supabase
       .from("roles")
       .select("*");
@@ -66,25 +63,40 @@ const AccountManagementPage = () => {
     const { data: divisionsData, error: divisionsError } = await supabase
       .from("divisions")
       .select("*");
+      
+    // Fetch profiles, selecting division_id directly to avoid ambiguity
+    const { data: profilesData, error: profilesError } = await supabase
+      .from("profiles")
+      .select(`
+        id, email, badge_number, first_name, last_name, status, avatar_url, division_id,
+        roles (id, name, level)
+      `)
+      .order("badge_number", { ascending: true }); 
 
     if (profilesError) {
       toast.error("Błąd podczas ładowania profili: " + profilesError.message);
       console.error("Error fetching profiles:", profilesError);
     } else {
-      const formattedProfiles: UserProfile[] = profilesData.map((p: any) => ({
-        id: p.id,
-        email: p.email,
-        badge_number: p.badge_number,
-        first_name: p.first_name || undefined,
-        last_name: p.last_name || undefined,
-        role_id: p.roles.id,
-        role_name: p.roles.name as UserRole,
-        role_level: p.roles.level,
-        division_id: p.divisions?.id || undefined,
-        division_name: p.divisions?.name || undefined,
-        status: p.status as "pending" | "approved" | "rejected",
-        avatar_url: p.avatar_url || undefined,
-      })).sort((a, b) => statusOrder(a.status) - statusOrder(b.status)); // Sortowanie po statusie
+      const allDivisions = divisionsData || [];
+      
+      const formattedProfiles: LocalProfile[] = profilesData.map((p: any) => {
+        const primaryDivision = allDivisions.find(d => d.id === p.division_id);
+        
+        return {
+          id: p.id,
+          email: p.email,
+          badge_number: p.badge_number,
+          first_name: p.first_name || undefined,
+          last_name: p.last_name || undefined,
+          role_id: p.roles.id,
+          role_name: p.roles.name as UserRole,
+          role_level: p.roles.level,
+          division_id: p.division_id || undefined,
+          division_name: primaryDivision?.name || undefined,
+          status: p.status as "pending" | "approved" | "rejected",
+          avatar_url: p.avatar_url || undefined,
+        };
+      }).sort((a, b) => statusOrder(a.status) - statusOrder(b.status)); // Sortowanie po statusie
       
       setProfiles(formattedProfiles);
     }
