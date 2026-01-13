@@ -1,61 +1,33 @@
--- 1. Deklarujemy zmienne pomocnicze
-DO $$
-DECLARE
-    sergeant_role_id int;
-    target_recipient_id uuid;
-    test_officer_id uuid := gen_random_uuid(); -- Generujemy losowy ID dla profilu
-BEGIN
-    -- 2. Pobieramy ID roli 'Sergeant'
-    SELECT id INTO sergeant_role_id FROM roles WHERE name = 'Sergeant' LIMIT 1;
+-- Tabela do przechowywania metadanych plików
+CREATE TABLE attachments (
+    id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+    owner_id uuid REFERENCES profiles(id) ON DELETE CASCADE NOT NULL,
+    file_url text NOT NULL,
+    file_type text,
+    file_size bigint,
     
-    -- 3. Pobieramy ID dowolnego innego funkcjonariusza (adresat raportu)
-    SELECT id INTO target_recipient_id FROM profiles WHERE status = 'approved' LIMIT 1;
+    -- Powiązania z innymi tabelami (tylko jedno może być ustawione)
+    report_id uuid REFERENCES reports(id) ON DELETE CASCADE,
+    note_id uuid REFERENCES notes(id) ON DELETE CASCADE,
+    chat_id uuid, -- Zakładamy, że chat_id jest UUID, jeśli używasz go do identyfikacji wiadomości
+    
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
 
-    -- 4. Tworzymy profil Sierżanta (Mike Miller)
-    INSERT INTO profiles (id, email, first_name, last_name, badge_number, role_id, status)
-    VALUES (
-        test_officer_id, 
-        'mike.miller@lspd.com', 
-        'Mike', 
-        'Miller', 
-        'S-102', 
-        sergeant_role_id, 
-        'approved'
-    );
+-- RLS dla attachments
+ALTER TABLE attachments ENABLE ROW LEVEL SECURITY;
 
-    -- 5. Dodajemy jego prywatną notatkę (bez wpisu w note_shares - nikt inny jej nie zobaczy)
-    INSERT INTO notes (author_id, title, content)
-    VALUES (
-        test_officer_id, 
-        'Prywatne obserwacje: Ganton', 
-        'Zauważono podejrzaną aktywność w okolicach warsztatu na Grove Street. Wymagana dalsza dyskretna obserwacja. Brak powiązań z obecnymi śledztwami.'
-    );
+-- Polityka: Właściciel może tworzyć, czytać, aktualizować i usuwać swoje załączniki
+CREATE POLICY "Allow owner to manage their attachments"
+ON attachments FOR ALL TO authenticated
+USING (owner_id = auth.uid())
+WITH CHECK (owner_id = auth.uid());
 
-    -- 6. Dodajemy jego raport (wysłany do przełożonego)
-    INSERT INTO reports (
-        author_id, 
-        recipient_id, 
-        title, 
-        location, 
-        date, 
-        time, 
-        description, 
-        category, 
-        priority, 
-        status
-    )
-    VALUES (
-        test_officer_id, 
-        target_recipient_id, 
-        'Zatrzymanie pojazdu: Przekroczenie prędkości', 
-        'Del Perro Freeway', 
-        CURRENT_DATE, 
-        '15:45', 
-        'Kierowca czarnej fusty zatrzymany do kontroli. Wystawiono mandat na kwotę 500$. Kierowca współpracował.', 
-        'Ruch drogowy', 
-        'low', 
-        'Zakończony'
-    );
-
-    RAISE NOTICE 'Testowy Sierżant Mike Miller został utworzony wraz z dokumentacją.';
-END $$;
+-- Polityka: Użytkownicy mogą czytać załączniki, jeśli mają dostęp do powiązanego rekordu (np. raportu/notatki)
+CREATE POLICY "Allow select if owner or related record is visible"
+ON attachments FOR SELECT TO authenticated
+USING (
+    (owner_id = auth.uid()) OR
+    (report_id IN (SELECT id FROM reports WHERE recipient_id = auth.uid() OR author_id = auth.uid())) OR
+    (note_id IN (SELECT id FROM notes WHERE author_id = auth.uid() OR id IN (SELECT note_id FROM note_shares WHERE profile_id = auth.uid())))
+);

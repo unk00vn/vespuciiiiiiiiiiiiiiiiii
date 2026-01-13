@@ -8,17 +8,19 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { User as UserIcon, Mail, Briefcase, Shield, CheckCircle, Clock, XCircle, Users } from "lucide-react";
+import { User as UserIcon, Mail, Briefcase, Users, Upload, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
+import { useFileUpload } from "@/hooks/useFileUpload";
 
 const ProfilePage = () => {
   const { profile, user, loading, fetchUserProfile } = useAuth();
+  const { uploadFile, isUploading } = useFileUpload();
+  
   const [isEditing, setIsEditing] = useState(false);
   const [firstName, setFirstName] = useState(profile?.first_name || "");
   const [lastName, setLastName] = useState(profile?.last_name || "");
   const [avatarUrl, setAvatarUrl] = useState(profile?.avatar_url || "");
-  const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
     if (profile) {
@@ -44,6 +46,30 @@ const ProfilePage = () => {
       setIsEditing(false);
     }
   };
+  
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    // Używamy hooka do uploadu, oznaczając, że to zdjęcie profilowe
+    const result = await uploadFile(file, { isProfilePicture: true });
+    
+    if (result && 'fileUrl' in result) {
+        // Aktualizujemy stan lokalny i zapisujemy profil
+        setAvatarUrl(result.fileUrl);
+        
+        const { error } = await supabase
+            .from("profiles")
+            .update({ avatar_url: result.fileUrl })
+            .eq("id", user!.id);
+            
+        if (error) {
+            toast.error("Błąd aktualizacji URL avatara: " + error.message);
+        } else {
+            await fetchUserProfile(user!.id);
+        }
+    }
+  };
 
   if (loading || !profile) {
     return <div className="text-center p-20">Ładowanie profilu...</div>;
@@ -66,12 +92,31 @@ const ProfilePage = () => {
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="flex items-center space-x-4">
-            <Avatar className="h-24 w-24 border-4 border-lapd-gold">
-              <AvatarImage src={avatarUrl} />
-              <AvatarFallback className="bg-lapd-navy text-lapd-gold text-2xl">
-                {profile.first_name?.[0]}{profile.last_name?.[0]}
-              </AvatarFallback>
-            </Avatar>
+            <div className="relative">
+                <Avatar className="h-24 w-24 border-4 border-lapd-gold">
+                  <AvatarImage src={avatarUrl} />
+                  <AvatarFallback className="bg-lapd-navy text-lapd-gold text-2xl">
+                    {profile.first_name?.[0]}{profile.last_name?.[0]}
+                  </AvatarFallback>
+                </Avatar>
+                {isEditing && (
+                    <label htmlFor="avatar-upload" className="absolute bottom-0 right-0 bg-lapd-gold p-1 rounded-full cursor-pointer hover:bg-yellow-600 transition-colors shadow-md">
+                        {isUploading ? (
+                            <Loader2 className="h-5 w-5 text-lapd-navy animate-spin" />
+                        ) : (
+                            <Upload className="h-5 w-5 text-lapd-navy" />
+                        )}
+                        <Input 
+                            id="avatar-upload" 
+                            type="file" 
+                            accept="image/*" 
+                            onChange={handleAvatarUpload} 
+                            className="hidden" 
+                            disabled={isUploading}
+                        />
+                    </label>
+                )}
+            </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -111,7 +156,7 @@ const ProfilePage = () => {
           </div>
 
           {isEditing && (
-            <Button className="w-full bg-lapd-gold text-lapd-navy font-bold" onClick={handleSaveProfile}>
+            <Button className="w-full bg-lapd-gold text-lapd-navy font-bold" onClick={handleSaveProfile} disabled={isUploading}>
               ZAPISZ ZMIANY W PROFILU
             </Button>
           )}
