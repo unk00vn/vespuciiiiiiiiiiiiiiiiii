@@ -48,27 +48,8 @@ const ProfilePage = () => {
   };
   
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    
-    const results = await uploadFiles([file], { isProfilePicture: true });
-    
-    if (results && results.length > 0 && 'fileUrl' in results[0]) {
-        const newUrl = results[0].fileUrl;
-        setAvatarUrl(newUrl);
-        
-        const { error } = await supabase
-            .from("profiles")
-            .update({ avatar_url: newUrl })
-            .eq("id", user!.id);
-            
-        if (error) {
-            toast.error("Błąd aktualizacji URL avatara: " + error.message);
-        } else {
-            await fetchUserProfile(user!.id);
-            toast.success("Zdjęcie profilowe zaktualizowane!");
-        }
-    }
+    // FUNKCJONALNOŚĆ WYŁĄCZONA
+    toast.error("Upload avatara jest tymczasowo wyłączony.");
     e.target.value = '';
   };
 
@@ -101,19 +82,15 @@ const ProfilePage = () => {
                   </AvatarFallback>
                 </Avatar>
                 {isEditing && (
-                    <label htmlFor="avatar-upload" className="absolute bottom-0 right-0 bg-lapd-gold p-1 rounded-full cursor-pointer hover:bg-yellow-600 transition-colors shadow-md">
-                        {isUploading ? (
-                            <Loader2 className="h-5 w-5 text-lapd-navy animate-spin" />
-                        ) : (
-                            <Upload className="h-5 w-5 text-lapd-navy" />
-                        )}
+                    <label htmlFor="avatar-upload" className="absolute bottom-0 right-0 bg-gray-600 p-1 rounded-full cursor-not-allowed shadow-md">
+                        <Upload className="h-5 w-5 text-white" />
                         <input 
                             id="avatar-upload" 
                             type="file" 
                             accept="image/*" 
                             onChange={handleAvatarUpload} 
                             className="hidden" 
-                            disabled={isUploading}
+                            disabled={true} // Zablokowanie inputu
                         />
                     </label>
                 )}

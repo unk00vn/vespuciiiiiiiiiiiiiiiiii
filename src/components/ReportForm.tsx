@@ -44,7 +44,8 @@ export const ReportForm = () => {
   }, []);
 
   const handleAttachmentSuccess = (attachments: any[]) => {
-    setTempAttachments(prev => [...prev, ...attachments]);
+    // Funkcjonalność wyłączona, ale zachowujemy stub, aby nie łamać logiki
+    // setTempAttachments(prev => [...prev, ...attachments]);
   };
 
   const toggleOfficer = (badgeAndName: string) => {
@@ -82,11 +83,12 @@ export const ReportForm = () => {
       return;
     }
 
-    if (tempAttachments.length > 0) {
-      await supabase.from("attachments")
-        .update({ report_id: report.id })
-        .in('id', tempAttachments.map(a => a.id));
-    }
+    // Logika aktualizacji załączników jest wyłączona, ponieważ upload jest wyłączony.
+    // if (tempAttachments.length > 0) {
+    //   await supabase.from("attachments")
+    //     .update({ report_id: report.id })
+    //     .in('id', tempAttachments.map(a => a.id));
+    // }
 
     await supabase.from("notifications").insert({
       user_id: formData.recipientId,
@@ -165,6 +167,7 @@ export const ReportForm = () => {
           <h3 className="text-lapd-gold font-bold text-sm uppercase mb-4 flex items-center">
             <Paperclip className="h-4 w-4 mr-2" /> Dokumentacja Fotograficzna
           </h3>
+          {/* Wyświetlanie załączników jest nadal aktywne, ale lista jest pusta, ponieważ upload jest wyłączony */}
           <AttachmentList attachments={tempAttachments} canDelete={true} onDelete={(id) => setTempAttachments(prev => prev.filter(a => a.id !== id))} />
           <div className="mt-4">
             <FileUploadWidget parentType="report" onUploadSuccess={handleAttachmentSuccess} />

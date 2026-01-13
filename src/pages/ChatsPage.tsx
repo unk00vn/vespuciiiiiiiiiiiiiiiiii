@@ -110,24 +110,13 @@ export const ChatsPage = () => {
     if (!error) {
         setNewMessage("");
         scrollToBottom();
-    } else toast.error("Błąd wysyłania.");
+    } else toast.error("Błąd wysyłania wiadomości.");
     setIsSending(false);
   };
 
   const handleFileUpload = async (files: any[]) => {
-    if (!activeChat || files.length === 0) return;
-    
-    const { data: msg, error } = await supabase.from("chat_messages").insert({
-        chat_id: activeChat.id,
-        author_id: profile?.id,
-        content: "Nadesłano dokumentację fotograficzną.",
-        user_name: `${profile?.first_name} ${profile?.last_name}`,
-        badge_number: profile?.badge_number
-    }).select().single();
-
-    if (error) return toast.error("Błąd przesyłania.");
-    await supabase.from("attachments").update({ chat_id: msg.id }).in('id', files.map(f => f.id));
-    fetchMessages(activeChat.id, true);
+    // FUNKCJONALNOŚĆ WYŁĄCZONA
+    toast.error("Upload plików jest tymczasowo wyłączony.");
   };
 
   const createGroup = async (name: string, members: string[]) => {
@@ -213,11 +202,12 @@ export const ChatsPage = () => {
                 <div className="flex items-center gap-3 bg-black/40 p-1.5 rounded-lg border border-white/10 focus-within:border-lapd-gold transition-colors">
                     <Popover>
                         <PopoverTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-10 w-10 text-lapd-gold hover:bg-lapd-gold hover:text-lapd-navy rounded">
+                            <Button variant="ghost" size="icon" className="h-10 w-10 text-gray-600 hover:bg-gray-600 hover:text-white rounded cursor-not-allowed" disabled={true}>
                                 <ImageIcon className="h-5 w-5" />
                             </Button>
                         </PopoverTrigger>
                         <PopoverContent className="w-80 p-0 bg-lapd-darker border-lapd-gold shadow-2xl" side="top" align="start">
+                            {/* Widget jest ukryty, ale logika handleFileUpload jest wyłączona */}
                             <div className="p-4"><FileUploadWidget parentType="chat" parentId={activeChat.id} onUploadSuccess={handleFileUpload} /></div>
                         </PopoverContent>
                     </Popover>
@@ -245,7 +235,7 @@ export const ChatsPage = () => {
   );
 };
 
-// ... (NewChatDialog bez zmian strukturalnych, tylko dodane isMounted jeśli trzeba)
+// ... (NewChatDialog bez zmian)
 const NewChatDialog = ({ officers, onCreated }: { officers: any[], onCreated: (name: string, members: string[]) => void }) => {
     const { profile } = useAuth();
     const [selected, setSelected] = useState<string[]>([]);

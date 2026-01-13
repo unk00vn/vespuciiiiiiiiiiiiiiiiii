@@ -18,13 +18,9 @@ export const AttachmentList = ({ attachments, onDelete, canDelete }: AttachmentL
             {attachments.map((file) => (
                 <div key={file.id} className="flex items-center justify-between p-3 bg-white/5 border border-white/10 rounded-lg group">
                     <div className="flex items-center space-x-3 overflow-hidden">
-                        {file.file_type.startsWith('image/') ? (
-                            <div className="h-10 w-10 rounded border border-lapd-gold/30 overflow-hidden flex-shrink-0">
-                                <img src={file.file_url} alt="Preview" className="h-full w-full object-cover" />
-                            </div>
-                        ) : (
-                            <FileText className="h-10 w-10 p-2 text-lapd-gold bg-white/5 rounded" />
-                        )}
+                        {/* Podgląd obrazu wyłączony, zawsze pokazujemy ikonę pliku */}
+                        <FileText className="h-10 w-10 p-2 text-lapd-gold bg-white/5 rounded flex-shrink-0" />
+                        
                         <div className="truncate">
                             <p className="text-[10px] font-black text-white uppercase truncate">{file.file_url.split('/').pop()}</p>
                             <p className="text-[8px] text-slate-500 font-mono">{(file.file_size / 1024).toFixed(1)} KB</p>

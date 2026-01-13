@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { Upload, FileText, Loader2, Paperclip } from "lucide-react";
+import { toast } from "sonner";
 
 interface FileUploadWidgetProps {
     parentId?: string; // Zmieniono na opcjonalne
@@ -17,22 +18,9 @@ export const FileUploadWidget = ({ parentId, parentType, onUploadSuccess }: File
     const { uploadFiles, isUploading, progress } = useFileUpload();
 
     const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files && e.target.files.length > 0) {
-            const files = Array.from(e.target.files);
-            
-            const options = {
-                reportId: parentType === 'report' ? parentId : undefined,
-                noteId: parentType === 'note' ? parentId : undefined,
-                chatId: parentType === 'chat' ? parentId : undefined,
-            };
-            
-            const results = await uploadFiles(files, options);
-            if (results.length > 0) {
-                onUploadSuccess(results);
-            }
-            // Reset input field
-            e.target.value = '';
-        }
+        // Funkcjonalność wyłączona
+        toast.error("Obsługa plików jest tymczasowo wyłączona.");
+        e.target.value = '';
     };
 
     return (
@@ -41,16 +29,16 @@ export const FileUploadWidget = ({ parentId, parentType, onUploadSuccess }: File
                 <Paperclip className="h-8 w-8 text-lapd-gold mb-2 opacity-50" />
                 <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mb-4">Przeciągnij zdjęcia lub kliknij aby wybrać</p>
                 <label className="cursor-pointer">
-                    <div className="bg-lapd-gold text-lapd-navy px-6 py-2 rounded font-black text-xs uppercase hover:bg-yellow-500 transition-colors">
-                        {isUploading ? "PRZESYŁANIE..." : "DODAJ ZAŁĄCZNIK"}
+                    <div className="bg-gray-600 text-white px-6 py-2 rounded font-black text-xs uppercase transition-colors cursor-not-allowed">
+                        FUNKCJA WYŁĄCZONA
                     </div>
                     <Input 
                         type="file" 
                         multiple 
                         className="hidden" 
                         onChange={handleFileChange} 
-                        disabled={isUploading}
-                        accept="image/*" // Ograniczamy do obrazów, ponieważ ImgBB jest głównie dla obrazów
+                        disabled={true} // Zablokowanie inputu
+                        accept="image/*" 
                     />
                 </label>
             </div>

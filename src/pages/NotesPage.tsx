@@ -73,7 +73,8 @@ const NotesPage = () => {
     if (error) {
         toast.error("Błąd zapisu: " + error.message);
     } else {
-        if (tempAttachments.length > 0) await supabase.from("attachments").update({ note_id: note.id }).in('id', tempAttachments.map(a => a.id));
+        // Logika aktualizacji załączników jest wyłączona
+        // if (tempAttachments.length > 0) await supabase.from("attachments").update({ note_id: note.id }).in('id', tempAttachments.map(a => a.id));
         toast.success("Notatka utworzona.");
         setIsAdding(false);
         setNewNote({ title: "", content: "" });
