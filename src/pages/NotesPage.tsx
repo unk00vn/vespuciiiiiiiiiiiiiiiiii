@@ -61,11 +61,11 @@ const CollaboratorManager = ({ note, officers, onClose, onUpdate }: { note: Note
         const inserts = currentCollaborators.map(pid => ({ note_id: note.id, profile_id: pid }));
         await supabase.from("note_shares").insert(inserts);
       }
-      toast.success("Uprawnienia zaktualizowane.");
+      toast.success("Zaktualizowano dostęp.");
       onUpdate();
       onClose();
     } catch (e: any) {
-      toast.error("Błąd: " + e.message);
+      toast.error("Wystąpił błąd podczas zapisywania.");
     } finally {
       setSaving(false);
     }
@@ -73,17 +73,17 @@ const CollaboratorManager = ({ note, officers, onClose, onUpdate }: { note: Note
 
   return (
     <Dialog open={true} onOpenChange={onClose}>
-      <DialogContent className="border-lapd-gold">
-        <DialogHeader><DialogTitle className="text-lapd-navy uppercase font-black">Współdzielenie Notatki</DialogTitle></DialogHeader>
+      <DialogContent className="border-lapd-gold bg-white">
+        <DialogHeader><DialogTitle className="text-lapd-navy font-black uppercase">Współdzielenie Notatki</DialogTitle></DialogHeader>
         <div className="max-h-60 overflow-y-auto space-y-2 py-2">
           {availableOfficers.map(o => (
-            <div key={o.id} className="flex justify-between items-center p-2 border rounded hover:bg-gray-50">
-              <span className="text-xs font-bold">#{o.badge_number} {o.first_name} {o.last_name}</span>
+            <div key={o.id} className="flex justify-between items-center p-3 border rounded-lg hover:bg-gray-50">
+              <span className="text-sm font-bold">#{o.badge_number} {o.first_name} {o.last_name}</span>
               <Button 
                 size="sm" 
-                variant={currentCollaborators.includes(o.id) ? "destructive" : "outline"} 
+                variant={currentCollaborators.includes(o.id) ? "default" : "outline"} 
+                className={currentCollaborators.includes(o.id) ? "bg-red-500 text-white" : "border-lapd-gold text-lapd-navy"}
                 onClick={() => handleToggleCollaborator(o.id)}
-                className="h-7 text-[10px]"
               >
                 {currentCollaborators.includes(o.id) ? "USUŃ" : "DODAJ"}
               </Button>
@@ -91,8 +91,8 @@ const CollaboratorManager = ({ note, officers, onClose, onUpdate }: { note: Note
           ))}
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={onClose}>Zamknij</Button>
-          <Button className="bg-lapd-navy text-lapd-gold" onClick={handleSave} disabled={saving}>ZAPISZ</Button>
+          <Button variant="outline" onClick={onClose} disabled={saving}>Anuluj</Button>
+          <Button className="bg-lapd-navy text-lapd-gold font-bold" onClick={handleSave} disabled={saving}>ZAPISZ</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -117,7 +117,6 @@ const NotesPage = () => {
     setDbError(null);
 
     try {
-        // Pobierz wszystkie widoczne notatki (RLS zajmie się filtrowaniem)
         const { data: notesData, error: notesError } = await supabase
             .from("notes")
             .select("*")
@@ -125,7 +124,6 @@ const NotesPage = () => {
 
         if (notesError) throw notesError;
 
-        // Pobierz udostępnienia dla tych notatek
         const noteIds = (notesData || []).map(n => n.id);
         let sharesData: any[] = [];
         if (noteIds.length > 0) {
@@ -143,11 +141,11 @@ const NotesPage = () => {
 
         setNotes(formatted);
     } catch (e: any) {
-        console.error(e);
+        console.error("Fetch error:", e);
         if (e.message?.includes("recursion")) {
-            setDbError("Błąd rekursji RLS. Uruchom skrypt 'FINAL REPAIR' w Supabase.");
+            setDbError("Wykryto pętlę uprawnień. Uruchom skrypt 'supabase_final_fix.sql' w panelu Supabase.");
         } else {
-            toast.error("Błąd ładowania danych.");
+            toast.error("Nie udało się załadować notatek.");
         }
     } finally {
         setLoading(false);
@@ -164,7 +162,7 @@ const NotesPage = () => {
     const { error } = await supabase.from("notes").insert({ author_id: profile?.id, title: newNote.title, content: newNote.content });
     if (error) toast.error("Błąd zapisu.");
     else {
-        toast.success("Notatka dodana.");
+        toast.success("Zapisano notatkę.");
         setIsAdding(false);
         setNewNote({ title: "", content: "" });
         fetchData();
@@ -176,7 +174,7 @@ const NotesPage = () => {
     const { error } = await supabase.from("notes").update({ title: editingNote.title, content: editingNote.content }).eq("id", editingNote.id);
     if (error) toast.error("Błąd aktualizacji.");
     else {
-        toast.success("Zapisano.");
+        toast.success("Zmiany zapisane.");
         setEditingNote(null);
         fetchData();
     }
@@ -187,7 +185,7 @@ const NotesPage = () => {
     const { error } = await supabase.from("notes").delete().eq("id", deletingNoteId);
     if (error) toast.error("Błąd usuwania.");
     else {
-        toast.success("Usunięto.");
+        toast.success("Notatka usunięta.");
         fetchData();
     }
     setDeletingNoteId(null);
@@ -198,9 +196,11 @@ const NotesPage = () => {
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold text-lapd-navy uppercase tracking-tighter">Baza Operacyjna</h1>
         <div className="flex gap-2">
-            <Button variant="outline" size="icon" onClick={fetchData} className="border-lapd-gold"><RefreshCcw className="h-4 w-4" /></Button>
-            <Button onClick={() => setIsAdding(!isAdding)} className="bg-lapd-gold text-lapd-navy font-bold">
-            {isAdding ? "ANULUJ" : "NOWA NOTATKA"}
+            <Button variant="outline" size="icon" onClick={fetchData} className="border-lapd-gold hover:bg-lapd-gold/10">
+                <RefreshCcw className="h-4 w-4" />
+            </Button>
+            <Button onClick={() => setIsAdding(!isAdding)} className="bg-lapd-gold text-lapd-navy font-bold shadow-md">
+                {isAdding ? "ANULUJ" : "NOWA NOTATKA"}
             </Button>
         </div>
       </div>
@@ -208,20 +208,18 @@ const NotesPage = () => {
       {dbError && (
         <Alert variant="destructive" className="border-2 border-red-500 bg-red-50">
           <AlertCircle className="h-5 w-5" />
-          <AlertTitle className="font-black">BŁĄD KONFIGURACJI RLS</AlertTitle>
+          <AlertTitle className="font-black">BŁĄD REKURSJI RLS</AlertTitle>
           <AlertDescription className="text-xs mt-1">
-            Wykryto pętlę w uprawnieniach bazy danych. Wklej skrypt SQL <b>"FINAL REPAIR"</b> do panelu Supabase i kliknij Run.
+            Baza danych wykryła pętlę w uprawnieniach. Skopiuj kod z pliku <b>supabase_final_fix.sql</b> w edytorze i uruchom go w SQL Editor panelu Supabase.
           </AlertDescription>
         </Alert>
       )}
 
       {isAdding && (
-        <Card className="border-lapd-gold shadow-lg bg-white">
-          <CardContent className="p-4 space-y-4">
-            <Input placeholder="Tytuł operacji / notatki" value={newNote.title} onChange={e => setNewNote({...newNote, title: e.target.value})} className="border-lapd-gold" />
+        <Card className="border-lapd-gold shadow-xl bg-white p-4 space-y-4">
+            <Input placeholder="Tytuł notatki" value={newNote.title} onChange={e => setNewNote({...newNote, title: e.target.value})} className="border-lapd-gold" />
             <Textarea placeholder="Treść..." value={newNote.content} onChange={e => setNewNote({...newNote, content: e.target.value})} className="min-h-[150px] border-lapd-gold" />
-            <Button onClick={handleAdd} className="w-full bg-lapd-navy text-lapd-gold font-bold">ZAPISZ W BAZIE</Button>
-          </CardContent>
+            <Button onClick={handleAdd} className="w-full bg-lapd-navy text-lapd-gold font-bold">ZAPISZ NOTATKĘ</Button>
         </Card>
       )}
 
@@ -230,12 +228,12 @@ const NotesPage = () => {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {notes.map(n => (
-            <Card key={n.id} className="border-l-4 border-l-lapd-gold hover:shadow-md transition-all bg-white flex flex-col h-full">
+            <Card key={n.id} className="border-l-4 border-l-lapd-gold hover:shadow-lg transition-all bg-white flex flex-col h-full">
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-black text-lapd-navy uppercase truncate">{n.title}</CardTitle>
                 <div className="text-[10px] text-gray-400 font-mono">ID: {n.id.substring(0, 8)}</div>
               </CardHeader>
-              <CardContent className="text-xs text-gray-600 flex-1 whitespace-pre-wrap line-clamp-5">
+              <CardContent className="text-xs text-gray-600 flex-1 whitespace-pre-wrap line-clamp-6">
                 {n.content}
               </CardContent>
               <CardFooter className="flex justify-between items-center pt-2 border-t border-gray-100 mt-2">
@@ -265,15 +263,15 @@ const NotesPage = () => {
             </Card>
           ))}
           {notes.length === 0 && !loading && !dbError && (
-            <div className="col-span-full text-center py-20 text-gray-400 italic">Baza notatek jest pusta.</div>
+            <div className="col-span-full text-center py-20 text-gray-400">Brak notatek do wyświetlenia.</div>
           )}
         </div>
       )}
 
       {editingNote && (
         <Dialog open={true} onOpenChange={() => setEditingNote(null)}>
-          <DialogContent className="max-w-2xl border-lapd-gold">
-            <DialogHeader><DialogTitle className="text-lapd-navy uppercase font-black">Edycja Notatki</DialogTitle></DialogHeader>
+          <DialogContent className="max-w-2xl border-lapd-gold bg-white">
+            <DialogHeader><DialogTitle className="text-lapd-navy font-black uppercase">Edycja Notatki</DialogTitle></DialogHeader>
             <div className="space-y-4 py-4">
                 <Input value={editingNote.title} onChange={e => setEditingNote({...editingNote, title: e.target.value})} className="border-lapd-gold" />
                 <Textarea value={editingNote.content} onChange={e => setEditingNote({...editingNote, content: e.target.value})} className="min-h-[300px] border-lapd-gold" />
@@ -292,7 +290,7 @@ const NotesPage = () => {
         <AlertDialogContent className="border-2 border-red-500">
           <AlertDialogHeader>
             <AlertDialogTitle className="text-red-600 uppercase font-black">Potwierdź usunięcie</AlertDialogTitle>
-            <AlertDialogDescription>Czy na pewno chcesz usunąć tę notatkę operacyjną? Tej operacji nie można cofnąć.</AlertDialogDescription>
+            <AlertDialogDescription>Tej operacji nie można cofnąć. Notatka zniknie z bazy danych.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Anuluj</AlertDialogCancel>
