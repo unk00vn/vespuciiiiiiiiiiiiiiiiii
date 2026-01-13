@@ -5,10 +5,11 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { MessageCircle, Send, X, Loader2 } from "lucide-react";
+import { MessageCircle, Send, X, Loader2, Maximize2, Minimize2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
 interface Message {
   id: string;
@@ -21,6 +22,7 @@ interface Message {
 export const ChatWidget = () => {
   const { profile } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
+  const [isWide, setIsWide] = useState(false); // Tryb leżący/pionowy
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState("");
   const [isSending, setIsSending] = useState(false);
@@ -36,7 +38,6 @@ export const ChatWidget = () => {
     }
   };
 
-  // Ładowanie historii i subskrypcja Realtime
   useEffect(() => {
     if (!profile) return;
 
@@ -47,9 +48,7 @@ export const ChatWidget = () => {
         .order("created_at", { ascending: true })
         .limit(50);
 
-      if (error) {
-        console.error("Błąd pobierania historii czatu:", error);
-      } else {
+      if (!error) {
         setMessages(data || []);
         setTimeout(scrollToBottom, 100);
       }
@@ -58,45 +57,32 @@ export const ChatWidget = () => {
 
     fetchHistory();
 
-    // Subskrypcja na nowe wiadomości
     const channel = supabase
       .channel("public:chat_messages")
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "chat_messages" },
-        (payload) => {
-          setMessages((prev) => [...prev, payload.new as Message]);
-          setTimeout(scrollToBottom, 50);
-        }
-      )
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "chat_messages" }, (payload) => {
+        setMessages((prev) => [...prev, payload.new as Message]);
+        setTimeout(scrollToBottom, 50);
+      })
       .subscribe();
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    return () => { supabase.removeChannel(channel); };
   }, [profile]);
 
   useEffect(() => {
     if (isOpen) setTimeout(scrollToBottom, 100);
-  }, [isOpen, messages.length]);
+  }, [isOpen, messages.length, isWide]);
 
   const handleSendMessage = async () => {
     if (newMessage.trim() === "" || !profile || isSending) return;
-
     setIsSending(true);
-    
     const { error } = await supabase.from("chat_messages").insert({
       user_name: `${profile.first_name} ${profile.last_name}`,
       badge_number: profile.badge_number,
       content: newMessage,
       author_id: profile.id
     });
-
-    if (error) {
-      toast.error("Błąd transmisji: " + error.message);
-    } else {
-      setNewMessage("");
-    }
+    if (error) toast.error("Błąd połączenia z bazą danych.");
+    else setNewMessage("");
     setIsSending(false);
   };
 
@@ -114,52 +100,50 @@ export const ChatWidget = () => {
   }
 
   return (
-    <Card className="fixed bottom-6 right-6 w-85 h-[500px] bg-lapd-darker border-2 border-lapd-gold shadow-2xl z-50 flex flex-col">
+    <Card className={cn(
+      "fixed bottom-6 right-6 bg-lapd-darker border-2 border-lapd-gold shadow-2xl z-50 flex flex-col transition-all duration-300",
+      isWide ? "w-[600px] h-[350px]" : "w-80 h-[500px]"
+    )}>
       <CardHeader className="flex flex-row items-center justify-between p-3 bg-lapd-navy border-b border-lapd-gold/30">
-        <CardTitle className="text-white text-sm font-black flex items-center uppercase tracking-tighter">
+        <CardTitle className="text-white text-[10px] font-black flex items-center uppercase tracking-tighter">
           <div className="h-2 w-2 rounded-full mr-2 bg-green-500 animate-pulse" />
-          KANAŁ OPERACYJNY LSPD
+          KANAŁ OPERACYJNY
         </CardTitle>
-        <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-white hover:bg-red-500" onClick={() => setIsOpen(false)}>
-          <X className="h-4 w-4" />
-        </Button>
+        <div className="flex gap-1">
+          <Button variant="ghost" size="icon" className="h-6 w-6 text-slate-400 hover:text-white" onClick={() => setIsWide(!isWide)}>
+            {isWide ? <Minimize2 className="h-3 w-3" /> : <Maximize2 className="h-3 w-3" />}
+          </Button>
+          <Button variant="ghost" size="icon" className="h-6 w-6 text-slate-400 hover:text-red-500" onClick={() => setIsOpen(false)}>
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
       </CardHeader>
       <CardContent className="flex-1 p-0 flex flex-col overflow-hidden">
         <ScrollArea className="flex-1 p-4" ref={scrollAreaRef}>
           <div className="space-y-4">
-            {isLoading ? (
-              <div className="flex justify-center py-10"><Loader2 className="animate-spin text-lapd-gold" /></div>
-            ) : messages.length === 0 ? (
-                <p className="text-[10px] text-slate-500 text-center uppercase font-bold italic mt-10">Brak aktywnych transmisji radiowych</p>
-            ) : (
+            {isLoading ? <div className="flex justify-center py-10"><Loader2 className="animate-spin text-lapd-gold" /></div> : 
               messages.map((m) => (
-                <div key={m.id} className="border-l-2 border-lapd-gold/50 pl-3 py-1 bg-white/[0.02] rounded-r">
+                <div key={m.id} className="border-l-2 border-lapd-gold/50 pl-3 py-1 bg-white/[0.02]">
                   <div className="flex justify-between items-baseline">
-                    <span className="text-[10px] font-black text-lapd-gold uppercase">{m.user_name}</span>
-                    <span className="text-[8px] text-slate-500 font-mono">#{m.badge_number}</span>
+                    <span className="text-[9px] font-black text-lapd-gold uppercase">{m.user_name}</span>
+                    <span className="text-[8px] text-slate-600">#{m.badge_number}</span>
                   </div>
-                  <p className="text-xs text-white leading-relaxed mt-1">{m.content}</p>
-                  <p className="text-[8px] text-slate-600 text-right mt-1">{new Date(m.created_at).toLocaleTimeString()}</p>
+                  <p className="text-xs text-white mt-1">{m.content}</p>
                 </div>
               ))
-            )}
+            }
           </div>
         </ScrollArea>
-        <div className="p-3 bg-lapd-navy border-t border-lapd-gold/20 flex gap-2">
+        <div className="p-3 bg-lapd-navy/50 border-t border-lapd-gold/20 flex gap-2">
           <Input
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleSendMessage()}
-            placeholder="NADAJ KOMUNIKAT..."
-            className="bg-black/60 border-lapd-gold/30 text-white text-xs placeholder:text-slate-600 focus:ring-1 focus:ring-lapd-gold h-10"
+            placeholder="NADAJ..."
+            className="bg-black/60 border-lapd-gold/30 text-white text-xs h-9 focus:ring-1 focus:ring-lapd-gold"
           />
-          <Button
-            size="sm"
-            className="bg-lapd-gold text-lapd-navy hover:bg-yellow-500 h-10 px-3"
-            onClick={handleSendMessage}
-            disabled={isSending}
-          >
-            {isSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+          <Button size="sm" className="bg-lapd-gold text-lapd-navy hover:bg-yellow-500 h-9" onClick={handleSendMessage} disabled={isSending}>
+            <Send className="h-4 w-4" />
           </Button>
         </div>
       </CardContent>
