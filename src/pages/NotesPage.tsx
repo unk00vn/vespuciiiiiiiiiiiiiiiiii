@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/componen
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { PlusCircle, Loader2, Edit, RefreshCcw, AlertCircle, Database, Paperclip } from "lucide-react";
+import { PlusCircle, Loader2, Edit, RefreshCcw, AlertCircle, Database, Paperclip, Save } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
@@ -13,14 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { FileUploadWidget } from "@/components/FileUploadWidget";
 import { AttachmentList } from "@/components/AttachmentList";
-
-interface Note {
-  id: string;
-  title: string;
-  content: string;
-  author_id: string;
-  created_at: string;
-}
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 
 const NotesPage = () => {
   const { profile } = useAuth();
@@ -30,6 +23,9 @@ const NotesPage = () => {
   const [isAdding, setIsAdding] = useState(false);
   const [newNote, setNewNote] = useState({ title: "", content: "" });
   const [tempAttachments, setTempAttachments] = useState<any[]>([]);
+  
+  const [editingNote, setEditingNote] = useState<any | null>(null);
+  const [saving, setSaving] = useState(false);
 
   const fetchNotes = async () => {
     if (!profile) return;
@@ -37,7 +33,6 @@ const NotesPage = () => {
     setError(false);
 
     try {
-      // Pobieramy notatki wraz z ich załącznikami
       const { data: notesData, error: sbError } = await supabase
         .from("notes")
         .select(`*, attachments(*)`)
@@ -68,7 +63,6 @@ const NotesPage = () => {
         return;
     }
 
-    // Przypisanie załączników do nowej notatki
     if (tempAttachments.length > 0) {
         await supabase.from("attachments")
             .update({ note_id: note.id })
@@ -80,6 +74,24 @@ const NotesPage = () => {
     setNewNote({ title: "", content: "" });
     setTempAttachments([]);
     fetchNotes();
+  };
+
+  const handleUpdate = async () => {
+    if (!editingNote || !editingNote.title.trim()) return;
+    setSaving(true);
+    const { error } = await supabase
+        .from("notes")
+        .update({ title: editingNote.title, content: editingNote.content })
+        .eq("id", editingNote.id);
+    
+    if (error) {
+        toast.error("Błąd aktualizacji.");
+    } else {
+        toast.success("Notatka zaktualizowana.");
+        setEditingNote(null);
+        fetchNotes();
+    }
+    setSaving(false);
   };
 
   return (
@@ -133,8 +145,13 @@ const NotesPage = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {notes.map(n => (
             <Card key={n.id} className="border border-white/10 bg-white/5 flex flex-col group overflow-hidden">
-              <CardHeader className="pb-3 border-b border-white/5">
+              <CardHeader className="pb-3 border-b border-white/5 flex justify-between items-center">
                 <CardTitle className="text-sm font-bold text-white uppercase truncate">{n.title}</CardTitle>
+                {n.author_id === profile?.id && (
+                    <Button variant="ghost" size="icon" className="h-6 w-6 text-lapd-gold opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => setEditingNote(n)}>
+                        <Edit className="h-3 w-3" />
+                    </Button>
+                )}
               </CardHeader>
               <CardContent className="pt-4 text-sm text-slate-200 flex-1 flex flex-col gap-4">
                 <div className="whitespace-pre-wrap leading-relaxed line-clamp-4 italic">{n.content}</div>
@@ -160,6 +177,29 @@ const NotesPage = () => {
           )}
         </div>
       )}
+
+      {/* OKNO EDYCJI */}
+      <Dialog open={!!editingNote} onOpenChange={() => !saving && setEditingNote(null)}>
+          <DialogContent className="bg-lapd-darker border-lapd-gold text-white">
+              <DialogHeader><DialogTitle className="text-lapd-gold uppercase font-black">Edytuj Notatkę</DialogTitle></DialogHeader>
+              <div className="space-y-4 py-4">
+                <div className="space-y-2">
+                    <Label className="uppercase text-[10px] font-bold">Tytuł</Label>
+                    <Input value={editingNote?.title || ""} onChange={e => setEditingNote({...editingNote, title: e.target.value})} className="bg-black/40 border-lapd-gold/30 text-white" />
+                </div>
+                <div className="space-y-2">
+                    <Label className="uppercase text-[10px] font-bold">Treść</Label>
+                    <Textarea rows={6} value={editingNote?.content || ""} onChange={e => setEditingNote({...editingNote, content: e.target.value})} className="bg-black/40 border-lapd-gold/30 text-white" />
+                </div>
+              </div>
+              <DialogFooter>
+                  <Button variant="outline" className="text-white border-white/20" onClick={() => setEditingNote(null)} disabled={saving}>Anuluj</Button>
+                  <Button onClick={handleUpdate} disabled={saving} className="bg-lapd-gold text-lapd-navy font-black">
+                      {saving ? <Loader2 className="animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />} ZAPISZ ZMIANY
+                  </Button>
+              </DialogFooter>
+          </DialogContent>
+      </Dialog>
     </div>
   );
 };

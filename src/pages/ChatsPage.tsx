@@ -30,12 +30,16 @@ export const ChatsPage = () => {
   const fetchChats = async () => {
     if (!profile) return;
     setLoading(true);
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("chat_participants")
-      .select(`chat:chats(*), chat_id`)
+      .select(`chat_id, chats(*)`)
       .eq("user_id", profile.id);
     
-    setChats(data?.map(d => d.chat) || []);
+    if (error) {
+        console.error("Fetch chats error:", error);
+    } else {
+        setChats(data?.map(d => d.chats).filter(Boolean) || []);
+    }
     setLoading(false);
   };
 
@@ -80,47 +84,70 @@ export const ChatsPage = () => {
       badge_number: profile?.badge_number
     });
     if (!error) setNewMessage("");
+    else toast.error("Nie udało się wysłać wiadomości.");
     setIsSending(false);
   };
 
   const createGroup = async (name: string, members: string[]) => {
-    const { data: chat, error } = await supabase.from("chats").insert({ name, is_group: members.length > 1 }).select().single();
-    if (error) return toast.error("Błąd tworzenia chatu.");
+    if (members.length === 0) {
+        toast.error("Wybierz przynajmniej jednego uczestnika.");
+        return;
+    }
+
+    const { data: chat, error: chatError } = await supabase
+        .from("chats")
+        .insert({ name: name || null, is_group: members.length > 1 })
+        .select()
+        .single();
+
+    if (chatError) {
+        console.error(chatError);
+        return toast.error("Błąd tworzenia pokoju.");
+    }
     
     const participants = [...members, profile!.id].map(uid => ({ chat_id: chat.id, user_id: uid }));
-    await supabase.from("chat_participants").insert(participants);
+    const { error: partError } = await supabase.from("chat_participants").insert(participants);
     
-    fetchChats();
+    if (partError) {
+        console.error(partError);
+        return toast.error("Błąd zapisu uczestników.");
+    }
+
+    toast.success("Konwersacja rozpoczęta.");
+    await fetchChats();
     setActiveChat(chat);
-    toast.success("Chat utworzony.");
   };
 
   return (
     <div className="flex h-[calc(100vh-160px)] gap-6">
-      {/* Sidebar Chatów */}
       <Card className="w-80 bg-white/5 border-white/10 flex flex-col">
         <CardHeader className="p-4 border-b border-white/10 flex flex-row items-center justify-between">
           <h2 className="text-sm font-black text-white uppercase tracking-widest">Wiadomości</h2>
           <NewChatDialog officers={allOfficers} onCreated={createGroup} />
         </CardHeader>
         <ScrollArea className="flex-1">
-          {chats.map(c => (
-            <div key={c.id} onClick={() => setActiveChat(c)} className={`p-4 cursor-pointer hover:bg-white/5 border-b border-white/5 transition-colors ${activeChat?.id === c.id ? 'bg-lapd-gold/10 border-l-4 border-l-lapd-gold' : ''}`}>
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 bg-lapd-navy rounded flex items-center justify-center border border-lapd-gold/30">
-                  {c.is_group ? <Users className="h-5 w-5 text-lapd-gold" /> : <User className="h-5 w-5 text-lapd-gold" />}
+          {loading ? (
+              <div className="flex justify-center p-8"><Loader2 className="animate-spin text-lapd-gold" /></div>
+          ) : chats.length === 0 ? (
+              <div className="p-8 text-center text-xs text-slate-500 italic">Brak rozmów</div>
+          ) : (
+            chats.map(c => (
+                <div key={c.id} onClick={() => setActiveChat(c)} className={`p-4 cursor-pointer hover:bg-white/5 border-b border-white/5 transition-colors ${activeChat?.id === c.id ? 'bg-lapd-gold/10 border-l-4 border-l-lapd-gold' : ''}`}>
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 bg-lapd-navy rounded flex items-center justify-center border border-lapd-gold/30">
+                      {c.is_group ? <Users className="h-5 w-5 text-lapd-gold" /> : <User className="h-5 w-5 text-lapd-gold" />}
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-white uppercase truncate w-40">{c.name || "Rozmowa prywatna"}</p>
+                      <p className="text-[10px] text-slate-500 font-mono">ID: {c.id.substring(0,6)}</p>
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-xs font-bold text-white uppercase truncate w-40">{c.name || "Rozmowa prywatna"}</p>
-                  <p className="text-[10px] text-slate-500 font-mono">ID: {c.id.substring(0,6)}</p>
-                </div>
-              </div>
-            </div>
-          ))}
+              ))
+          )}
         </ScrollArea>
       </Card>
 
-      {/* Okno Chatu */}
       <Card className="flex-1 bg-white/5 border-white/10 flex flex-col relative overflow-hidden">
         {activeChat ? (
           <>
@@ -147,7 +174,7 @@ export const ChatsPage = () => {
                 ))}
               </div>
             </ScrollArea>
-            <div className="p-4 bg-lapd-navy/50 border-t border-white/10 flex flex-col gap-3">
+            <div className="p-4 bg-lapd-navy/50 border-t border-white/10">
                 <div className="flex gap-2">
                     <FileUploadWidget parentType="chat" parentId={activeChat.id} onUploadSuccess={(files) => {
                         supabase.from("chat_messages").insert({
@@ -156,7 +183,8 @@ export const ChatsPage = () => {
                             content: "Przesłano załącznik fotograficzny.",
                             user_name: `${profile?.first_name} ${profile?.last_name}`,
                             badge_number: profile?.badge_number
-                        }).select().single().then(({data}) => {
+                        }).select().single().then(({data, error}) => {
+                            if (error) return toast.error("Błąd wysyłania zdjęcia.");
                             if (data) supabase.from("attachments").update({ chat_id: data.id }).in('id', files.map(f => f.id)).then(() => fetchMessages(activeChat.id));
                         });
                     }} />
@@ -181,29 +209,30 @@ export const ChatsPage = () => {
 const NewChatDialog = ({ officers, onCreated }: { officers: any[], onCreated: (name: string, members: string[]) => void }) => {
     const [selected, setSelected] = useState<string[]>([]);
     const [name, setName] = useState("");
+    const [open, setOpen] = useState(false);
 
     return (
-        <Dialog>
+        <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild><Button variant="ghost" size="icon" className="text-lapd-gold hover:bg-white/10"><Plus className="h-5 w-5" /></Button></DialogTrigger>
             <DialogContent className="bg-lapd-darker border-lapd-gold text-white">
                 <DialogHeader><DialogTitle className="text-lapd-gold uppercase font-black">Nowa Konwersacja</DialogTitle></DialogHeader>
                 <div className="space-y-4 py-4">
                     <div className="space-y-2">
                         <Label className="uppercase text-[10px] font-bold">Nazwa Grupy (opcjonalnie)</Label>
-                        <Input value={name} onChange={e => setName(e.target.value)} placeholder="np. Patrol 1" className="bg-black/40 border-lapd-gold/30" />
+                        <Input value={name} onChange={e => setName(e.target.value)} placeholder="np. Patrol 1" className="bg-black/40 border-lapd-gold/30 text-white" />
                     </div>
                     <Label className="uppercase text-[10px] font-bold">Wybierz funkcjonariuszy</Label>
                     <ScrollArea className="h-60 border border-white/10 rounded p-2">
                         {officers.map(o => (
                             <div key={o.id} className="flex items-center gap-3 p-2 hover:bg-white/5 rounded">
-                                <Checkbox checked={selected.includes(o.id)} onCheckedChange={(c) => setSelected(prev => c ? [...prev, o.id] : prev.filter(i => i !== o.id))} className="border-lapd-gold" />
-                                <span className="text-xs font-bold">#{o.badge_number} {o.last_name}</span>
+                                <Checkbox id={`user-${o.id}`} checked={selected.includes(o.id)} onCheckedChange={(c) => setSelected(prev => c ? [...prev, o.id] : prev.filter(i => i !== o.id))} className="border-lapd-gold" />
+                                <Label htmlFor={`user-${o.id}`} className="text-xs font-bold cursor-pointer text-white">#{o.badge_number} {o.last_name}</Label>
                             </div>
                         ))}
                     </ScrollArea>
                 </div>
                 <DialogFooter>
-                    <Button onClick={() => onCreated(name, selected)} className="bg-lapd-gold text-lapd-navy font-black w-full uppercase">UTWÓRZ KANAŁ</Button>
+                    <Button onClick={() => { onCreated(name, selected); setOpen(false); setSelected([]); setName(""); }} className="bg-lapd-gold text-lapd-navy font-black w-full uppercase">UTWÓRZ KANAŁ</Button>
                 </DialogFooter>
             </DialogContent>
         </Dialog>
