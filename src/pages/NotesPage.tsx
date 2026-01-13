@@ -123,6 +123,7 @@ const NotesPage = () => {
   const [allOfficers, setAllOfficers] = useState<Officer[]>([]);
   const [isAdding, setIsAdding] = useState(false);
   const [editingNote, setEditingNote] = useState<Note | null>(null);
+  const [sharingNote, setSharingNote] = useState<Note | null>(null); // Dodanie stanu sharingNote
   const [deletingNoteId, setDeletingNoteId] = useState<string | null>(null);
   const [newNote, setNewNote] = useState({ title: "", content: "" });
   const [loading, setLoading] = useState(true);
