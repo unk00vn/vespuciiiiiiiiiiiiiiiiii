@@ -15,6 +15,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
 
 export const ChatsPage = () => {
   const { profile } = useAuth();
@@ -139,7 +140,7 @@ export const ChatsPage = () => {
               <div className="p-12 text-center text-[10px] text-slate-600 uppercase font-black italic">Brak połączeń</div>
           ) : (
             chats.map(c => (
-                <div key={c.id} onClick={() => setActiveChat(c)} className={`p-4 cursor-pointer hover:bg-white/5 border-b border-white/5 transition-all group ${activeChat?.id === c.id ? 'bg-lapd-gold/5 border-l-4 border-l-lapd-gold' : 'border-l-4 border-l-transparent'}`}>
+                <div key={c.id} onClick={() => setActiveChat(c)} className={cn("p-4 cursor-pointer hover:bg-white/5 border-b border-white/5 transition-all group", activeChat?.id === c.id ? 'bg-lapd-gold/5 border-l-4 border-l-lapd-gold' : 'border-l-4 border-l-transparent')}>
                   <div className="flex items-center gap-3">
                     <div className={cn("h-10 w-10 rounded flex items-center justify-center border transition-colors", activeChat?.id === c.id ? 'bg-lapd-gold border-lapd-gold' : 'bg-lapd-navy border-white/10 group-hover:border-lapd-gold/50')}>
                       {c.is_group ? <Users className={cn("h-5 w-5", activeChat?.id === c.id ? 'text-lapd-navy' : 'text-lapd-gold')} /> : <User className={cn("h-5 w-5", activeChat?.id === c.id ? 'text-lapd-navy' : 'text-lapd-gold')} />}
@@ -233,7 +234,12 @@ const NewChatDialog = ({ officers, onCreated }: { officers: any[], onCreated: (n
     const [open, setOpen] = useState(false);
     const [search, setSearch] = useState("");
 
-    const filteredOfficers = officers.filter(o => o.id !== profile?.id && (o.last_name.toLowerCase().includes(search.toLowerCase()) || o.badge_number.includes(search)));
+    const filteredOfficers = officers.filter(o => 
+      o.id !== profile?.id && (
+        (o.last_name?.toLowerCase() || "").includes(search.toLowerCase()) || 
+        (o.badge_number?.toLowerCase() || "").includes(search.toLowerCase())
+      )
+    );
 
     return (
         <Dialog open={open} onOpenChange={setOpen}>
