@@ -1,38 +1,49 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useToast } from "@/hooks/use-toast";
-import { FileText, MapPin, Clock, User } from "lucide-react";
-
-interface ReportFormData {
-  title: string;
-  location: string;
-  date: string;
-  time: string;
-  description: string;
-  category: string;
-  priority: string;
-  involvedParties: string;
-}
+import { toast } from "sonner";
+import { FileText, MapPin, Clock, User, Send } from "lucide-react";
+import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/contexts/AuthContext";
+import { useNavigate } from "react-router-dom";
 
 export const ReportForm = () => {
-  const { toast } = useToast();
-  const [formData, setFormData] = useState<ReportFormData>({
+  const { profile } = useAuth();
+  const navigate = useNavigate();
+  const [loading, setLoading] = useState(false);
+  const [officers, setOfficers] = useState<{ id: string, first_name: string, last_name: string, badge_number: string }[]>([]);
+  
+  const [formData, setFormData] = useState({
     title: "",
     location: "",
     date: new Date().toISOString().split('T')[0],
-    time: "",
+    time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     description: "",
-    category: "",
+    category: "other",
     priority: "medium",
-    involvedParties: ""
+    involvedParties: "",
+    recipientId: ""
   });
+
+  useEffect(() => {
+    const fetchOfficers = async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id, first_name, last_name, badge_number")
+        .eq("status", "approved");
+      
+      if (!error && data) {
+        setOfficers(data);
+      }
+    };
+    fetchOfficers();
+  }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -43,42 +54,71 @@ export const ReportForm = () => {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("Form submitted:", formData);
+    if (!profile) return;
     
-    toast({
-      title: "Raport Zapisany",
-      description: "Twój raport został pomyślnie zapisany i przesłany.",
-    });
+    if (!formData.recipientId) {
+      toast.error("Wybierz adresata raportu!");
+      return;
+    }
+
+    setLoading(true);
     
-    // Reset form
-    setFormData({
-      title: "",
-      location: "",
-      date: new Date().toISOString().split('T')[0],
-      time: "",
-      description: "",
-      category: "",
-      priority: "medium",
-      involvedParties: ""
+    const { error } = await supabase.from("reports").insert({
+      author_id: profile.id,
+      recipient_id: formData.recipientId,
+      title: formData.title,
+      location: formData.location,
+      date: formData.date,
+      time: formData.time,
+      description: formData.description,
+      category: formData.category,
+      priority: formData.priority,
+      involved_parties: formData.involvedParties,
+      status: "Oczekujący"
     });
+
+    if (error) {
+      toast.error("Błąd zapisu: " + error.message);
+    } else {
+      toast.success("Raport został przesłany pomyślnie.");
+      navigate("/reports");
+    }
+    setLoading(false);
   };
 
   return (
-    <Card className="bg-lapd-white border-lapd-gold shadow-md">
-      <CardHeader>
-        <CardTitle className="text-lapd-navy flex items-center">
-          <FileText className="h-5 w-5 mr-2" />
-          Nowy Raport Policyjny
+    <Card className="bg-lapd-white border-lapd-gold shadow-2xl">
+      <CardHeader className="bg-lapd-navy text-lapd-white rounded-t-lg border-b border-lapd-gold">
+        <CardTitle className="text-xl flex items-center tracking-wide">
+          <FileText className="h-6 w-6 mr-3 text-lapd-gold" />
+          OFICJALNY RAPORT POLICYJNY
         </CardTitle>
       </CardHeader>
       <form onSubmit={handleSubmit}>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <CardContent className="space-y-6 p-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-2">
-              <Label htmlFor="title" className="text-lapd-navy flex items-center">
-                <FileText className="h-4 w-4 mr-2" />
+              <Label className="text-lapd-navy font-bold flex items-center text-sm uppercase">
+                <Send className="h-4 w-4 mr-2 text-lapd-gold" /> Adresat Raportu
+              </Label>
+              <Select onValueChange={(v) => handleSelectChange("recipientId", v)}>
+                <SelectTrigger className="border-lapd-gold focus:ring-lapd-navy h-11 bg-gray-50">
+                  <SelectValue placeholder="Wybierz przełożonego/funkcjonariusza" />
+                </SelectTrigger>
+                <SelectContent className="bg-white border-lapd-gold">
+                  {officers.map(off => (
+                    <SelectItem key={off.id} value={off.id}>
+                      {off.first_name} {off.last_name} (#{off.badge_number})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="title" className="text-lapd-navy font-bold flex items-center text-sm uppercase">
                 Tytuł Incydentu
               </Label>
               <Input
@@ -86,73 +126,40 @@ export const ReportForm = () => {
                 name="title"
                 value={formData.title}
                 onChange={handleChange}
-                placeholder="Opisz krótko incydent"
+                placeholder="np. Kradzież pojazdu na Vespucci"
                 required
-                className="border-lapd-gold focus:ring-lapd-gold"
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="location" className="text-lapd-navy flex items-center">
-                <MapPin className="h-4 w-4 mr-2" />
-                Lokalizacja
-              </Label>
-              <Input
-                id="location"
-                name="location"
-                value={formData.location}
-                onChange={handleChange}
-                placeholder="Gdzie miał miejsce incydent"
-                required
-                className="border-lapd-gold focus:ring-lapd-gold"
+                className="border-lapd-gold focus:ring-lapd-navy h-11 bg-gray-50"
               />
             </div>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="space-y-2">
-              <Label htmlFor="date" className="text-lapd-navy flex items-center">
-                <Clock className="h-4 w-4 mr-2" />
-                Data
-              </Label>
+              <Label className="text-lapd-navy font-bold flex items-center text-sm uppercase">Data</Label>
               <Input
-                id="date"
                 name="date"
                 type="date"
                 value={formData.date}
                 onChange={handleChange}
-                required
-                className="border-lapd-gold focus:ring-lapd-gold"
+                className="border-lapd-gold h-11 bg-gray-50"
               />
             </div>
-            
             <div className="space-y-2">
-              <Label htmlFor="time" className="text-lapd-navy flex items-center">
-                <Clock className="h-4 w-4 mr-2" />
-                Godzina
-              </Label>
+              <Label className="text-lapd-navy font-bold flex items-center text-sm uppercase">Godzina</Label>
               <Input
-                id="time"
                 name="time"
-                type="time"
                 value={formData.time}
                 onChange={handleChange}
-                required
-                className="border-lapd-gold focus:ring-lapd-gold"
+                className="border-lapd-gold h-11 bg-gray-50"
               />
             </div>
-            
             <div className="space-y-2">
-              <Label htmlFor="priority" className="text-lapd-navy">Priorytet</Label>
-              <Select 
-                name="priority" 
-                value={formData.priority} 
-                onValueChange={(value) => handleSelectChange("priority", value)}
-              >
-                <SelectTrigger className="border-lapd-gold focus:ring-lapd-gold">
-                  <SelectValue placeholder="Wybierz priorytet" />
+              <Label className="text-lapd-navy font-bold flex items-center text-sm uppercase">Priorytet</Label>
+              <Select onValueChange={(v) => handleSelectChange("priority", v)} defaultValue="medium">
+                <SelectTrigger className="border-lapd-gold h-11 bg-gray-50">
+                  <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="bg-white">
                   <SelectItem value="low">Niski</SelectItem>
                   <SelectItem value="medium">Średni</SelectItem>
                   <SelectItem value="high">Wysoki</SelectItem>
@@ -162,65 +169,55 @@ export const ReportForm = () => {
             </div>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="category" className="text-lapd-navy">Kategoria</Label>
-              <Select 
-                name="category" 
-                value={formData.category} 
-                onValueChange={(value) => handleSelectChange("category", value)}
-              >
-                <SelectTrigger className="border-lapd-gold focus:ring-lapd-gold">
-                  <SelectValue placeholder="Wybierz kategorię" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="theft">Kradzież</SelectItem>
-                  <SelectItem value="assault">Napad</SelectItem>
-                  <SelectItem value="traffic">Ruch drogowy</SelectItem>
-                  <SelectItem value="domestic">Sprawa domowa</SelectItem>
-                  <SelectItem value="drugs">Narkotyki</SelectItem>
-                  <SelectItem value="other">Inne</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="involvedParties" className="text-lapd-navy flex items-center">
-                <User className="h-4 w-4 mr-2" />
-                Zaangażowane Osoby
-              </Label>
-              <Input
-                id="involvedParties"
-                name="involvedParties"
-                value={formData.involvedParties}
-                onChange={handleChange}
-                placeholder="Imiona/nazwiska osób zaangażowanych"
-                className="border-lapd-gold focus:ring-lapd-gold"
-              />
-            </div>
-          </div>
-          
           <div className="space-y-2">
-            <Label htmlFor="description" className="text-lapd-navy">Opis Incydentu</Label>
+            <Label className="text-lapd-navy font-bold flex items-center text-sm uppercase">
+              <MapPin className="h-4 w-4 mr-2 text-lapd-gold" /> Lokalizacja
+            </Label>
+            <Input
+              name="location"
+              value={formData.location}
+              onChange={handleChange}
+              placeholder="Dokładny adres lub rejon"
+              required
+              className="border-lapd-gold h-11 bg-gray-50"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label className="text-lapd-navy font-bold flex items-center text-sm uppercase">Opis Zdarzenia</Label>
             <Textarea
-              id="description"
               name="description"
               value={formData.description}
               onChange={handleChange}
-              placeholder="Szczegółowo opisz przebieg incydentu..."
-              rows={5}
+              placeholder="Podaj szczegółowy przebieg interwencji..."
+              rows={8}
               required
-              className="border-lapd-gold focus:ring-lapd-gold"
+              className="border-lapd-gold bg-gray-50 focus:bg-white transition-all"
+            />
+          </div>
+          
+          <div className="space-y-2">
+            <Label className="text-lapd-navy font-bold flex items-center text-sm uppercase">Osoby Zaangażowane</Label>
+            <Input
+              name="involvedParties"
+              value={formData.involvedParties}
+              onChange={handleChange}
+              placeholder="Imiona, nazwiska, numery telefonów"
+              className="border-lapd-gold h-11 bg-gray-50"
             />
           </div>
         </CardContent>
         
-        <CardFooter className="flex justify-end">
+        <CardFooter className="bg-gray-50 p-6 flex justify-between border-t border-gray-200">
+          <Button variant="outline" type="button" onClick={() => navigate("/reports")} className="border-gray-300">
+            Anuluj
+          </Button>
           <Button 
             type="submit" 
-            className="bg-lapd-gold text-lapd-navy hover:bg-yellow-600"
+            disabled={loading}
+            className="bg-lapd-navy text-lapd-gold hover:bg-lapd-navy/90 px-10 h-11 font-bold shadow-lg"
           >
-            Zapisz Raport
+            {loading ? "Wysyłanie..." : "PRZEŚLIJ RAPORT DO WERYFIKACJI"}
           </Button>
         </CardFooter>
       </form>
