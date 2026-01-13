@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
-import { UserProfile, Division } from "@/contexts/AuthContext";
+import { UserProfile } from "@/contexts/AuthContext"; // Usunięto import Division, aby użyć lokalnej definicji
 
 // --- Typy Danych ---
 
@@ -34,6 +34,13 @@ export interface Announcement {
   content: string;
   status: string;
   created_at: string;
+}
+
+// Zaktualizowana definicja Division
+export interface Division {
+  id: number;
+  name: string;
+  description: string; // Dodano description
 }
 
 export interface DashboardStats {

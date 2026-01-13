@@ -5,6 +5,7 @@ import { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 import { useNavigate, Navigate, useLocation } from "react-router-dom";
 import { toast } from "sonner";
+import { Button } from "@/components/ui/button"; // Dodany import Button
 
 // Definicje typów
 export type UserRole = "Officer" | "Sergeant" | "Lieutenant" | "Captain" | "High Command";
@@ -12,6 +13,7 @@ export type UserRole = "Officer" | "Sergeant" | "Lieutenant" | "Captain" | "High
 export interface Division {
   id: number;
   name: string;
+  description?: string; // Dodano description, aby naprawić błąd w DivisionsPage
 }
 
 export interface UserProfile {
@@ -23,7 +25,7 @@ export interface UserProfile {
   role_id: number;
   role_name: UserRole;
   role_level: number;
-  divisions: Division[]; // Używamy tablicy dla wielu dywizji
+  division_id?: number; // Dodano division_id
   status: "pending" | "approved" | "rejected";
   avatar_url?: string;
 }
@@ -53,9 +55,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const { data: profileData, error: profileError } = await supabase
       .from("profiles")
       .select(`
-        id, email, badge_number, first_name, last_name, status, avatar_url,
-        roles (id, name, level),
-        profile_divisions (divisions (id, name))
+        id, email, badge_number, first_name, last_name, status, avatar_url, division_id,
+        roles (id, name, level)
       `)
       .eq("id", userId)
       .single();
@@ -65,7 +66,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       return null;
     }
 
-    const divisions = profileData.profile_divisions.map(pd => pd.divisions).filter(Boolean) as Division[];
+    // Naprawa błędów 2, 3, 4: roles jest pojedynczym obiektem, nie tablicą
+    const role = profileData.roles as { id: number, name: string, level: number };
 
     return {
       id: profileData.id,
@@ -73,10 +75,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       badge_number: profileData.badge_number,
       first_name: profileData.first_name || undefined,
       last_name: profileData.last_name || undefined,
-      role_id: profileData.roles.id,
-      role_name: profileData.roles.name as UserRole,
-      role_level: profileData.roles.level,
-      divisions: divisions,
+      role_id: role.id,
+      role_name: role.name as UserRole,
+      role_level: role.level,
+      division_id: profileData.division_id || undefined,
       status: profileData.status as "pending" | "approved" | "rejected",
       avatar_url: profileData.avatar_url || undefined,
     };
@@ -145,23 +147,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const signUp = useCallback(async (email: string, password: string, badgeNumber: string) => {
     setLoading(true);
     
-    // 1. Find default role ID (Officer)
-    const { data: roleData, error: roleError } = await supabase
-      .from("roles")
-      .select("id")
-      .eq("name", "Officer")
-      .single();
-
-    if (roleError || !roleData) {
-      toast.error("Błąd rejestracji: Nie można znaleźć domyślnej roli.");
-      setLoading(false);
-      return { error: roleError || new Error("Role not found") };
-    }
-
-    // 2. Sign up user
+    // 1. Sign up user with metadata
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email,
       password,
+      options: {
+        data: {
+          badge_number: badgeNumber,
+        }
+      }
     });
 
     if (authError) {
@@ -170,23 +164,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       return { error: authError };
     }
 
-    // 3. Create profile entry
+    // Profile creation is handled by the SQL trigger (handle_new_user)
+
     if (authData.user) {
-      const { error: profileError } = await supabase.from("profiles").insert({
-        id: authData.user.id,
-        email: email,
-        badge_number: badgeNumber,
-        role_id: roleData.id,
-        status: "pending",
-      });
-
-      if (profileError) {
-        console.error("Error creating user profile:", profileError);
-        toast.error("Błąd podczas tworzenia profilu użytkownika.");
-        setLoading(false);
-        return { error: profileError };
-      }
-
       toast.info("Konto zostało utworzone i oczekuje na akceptację.");
       navigate("/login");
     }
