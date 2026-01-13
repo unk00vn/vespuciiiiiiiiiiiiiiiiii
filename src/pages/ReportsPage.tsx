@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { PlusCircle, Search, Loader2, Archive, ClipboardList } from "lucide-react";
+import { PlusCircle, Search, Loader2, Archive, ClipboardList, AlertCircle, RefreshCcw } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/lib/supabase";
@@ -16,21 +16,43 @@ const ReportsPage = () => {
   const { profile } = useAuth();
   const [reports, setReports] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
 
   const fetchReports = async () => {
     if (!profile) return;
-    const { data, error } = await supabase
-      .from("reports")
-      .select(`*, author:profiles!author_id(first_name, last_name, badge_number), recipient:profiles!recipient_id(first_name, last_name, badge_number)`)
-      .or(`author_id.eq.${profile.id},recipient_id.eq.${profile.id}`)
-      .order("created_at", { ascending: false });
+    setLoading(true);
+    setError(false);
 
-    if (!error && data) setReports(data);
-    setLoading(false);
+    const safetyTimeout = setTimeout(() => {
+      if (loading) {
+        setLoading(false);
+        setError(true);
+      }
+    }, 7000);
+
+    try {
+      const { data, error: sbError } = await supabase
+        .from("reports")
+        .select(`*, author:profiles!author_id(first_name, last_name, badge_number), recipient:profiles!recipient_id(first_name, last_name, badge_number)`)
+        .or(`author_id.eq.${profile.id},recipient_id.eq.${profile.id}`)
+        .order("created_at", { ascending: false })
+        .limit(50); // Paginacja systemowa
+
+      if (sbError) throw sbError;
+      setReports(data || []);
+    } catch (err) {
+      console.error("Fetch reports error:", err);
+      setError(true);
+    } finally {
+      clearTimeout(safetyTimeout);
+      setLoading(false);
+    }
   };
 
-  useEffect(() => { fetchReports(); }, [profile]);
+  useEffect(() => { 
+    fetchReports(); 
+  }, [profile]);
 
   const filteredReports = reports.filter(r => 
     r.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -75,9 +97,14 @@ const ReportsPage = () => {
               </TableCell>
             </TableRow>
           ))}
-          {data.length === 0 && (
+          {data.length === 0 && !loading && !error && (
             <TableRow>
-              <TableCell colSpan={5} className="text-center py-12 text-slate-500 italic">Brak raportów w tej sekcji.</TableCell>
+              <TableCell colSpan={5} className="text-center py-20">
+                <div className="flex flex-col items-center text-slate-500">
+                   <Archive className="h-10 w-10 mb-2 opacity-20" />
+                   <p className="uppercase text-xs font-black tracking-widest">Brak raportów do wyświetlenia</p>
+                </div>
+              </TableCell>
             </TableRow>
           )}
         </TableBody>
@@ -107,23 +134,39 @@ const ReportsPage = () => {
         />
       </div>
 
-      <Tabs defaultValue="active" className="w-full">
-        <TabsList className="bg-white/5 p-1 mb-6 border border-white/10">
-          <TabsTrigger value="active" className="data-[state=active]:bg-lapd-gold data-[state=active]:text-black text-slate-400 font-bold px-6">
-            <ClipboardList className="mr-2 h-4 w-4" /> AKTYWNE ({activeReports.length})
-          </TabsTrigger>
-          <TabsTrigger value="archive" className="data-[state=active]:bg-lapd-gold data-[state=active]:text-black text-slate-400 font-bold px-6">
-            <Archive className="mr-2 h-4 w-4" /> ARCHIWUM ({archivedReports.length})
-          </TabsTrigger>
-        </TabsList>
+      {error ? (
+        <div className="flex flex-col items-center justify-center py-20 bg-red-500/5 border border-red-500/20 rounded-lg">
+          <AlertCircle className="h-12 w-12 text-red-500 mb-4" />
+          <p className="text-white font-bold uppercase">Błąd ładowania danych</p>
+          <p className="text-slate-400 text-xs mt-1">Serwer nie odpowiada. Sprawdź połączenie i spróbuj ponownie.</p>
+          <Button onClick={fetchReports} className="mt-6 bg-red-600 hover:bg-red-700 text-white">
+            <RefreshCcw className="h-4 w-4 mr-2" /> PONÓW PRÓBĘ
+          </Button>
+        </div>
+      ) : (
+        <Tabs defaultValue="active" className="w-full">
+          <TabsList className="bg-white/5 p-1 mb-6 border border-white/10">
+            <TabsTrigger value="active" className="data-[state=active]:bg-lapd-gold data-[state=active]:text-black text-slate-400 font-bold px-6">
+              <ClipboardList className="mr-2 h-4 w-4" /> AKTYWNE ({activeReports.length})
+            </TabsTrigger>
+            <TabsTrigger value="archive" className="data-[state=active]:bg-lapd-gold data-[state=active]:text-black text-slate-400 font-bold px-6">
+              <Archive className="mr-2 h-4 w-4" /> ARCHIWUM ({archivedReports.length})
+            </TabsTrigger>
+          </TabsList>
 
-        {loading ? <div className="flex justify-center py-20"><Loader2 className="animate-spin text-lapd-gold h-12 w-12" /></div> : (
-          <>
-            <TabsContent value="active" className="m-0"><ReportTable data={activeReports} /></TabsContent>
-            <TabsContent value="archive" className="m-0"><ReportTable data={archivedReports} /></TabsContent>
-          </>
-        )}
-      </Tabs>
+          {loading ? (
+            <div className="flex flex-col items-center justify-center py-32">
+               <Loader2 className="animate-spin text-lapd-gold h-10 w-10 mb-4" />
+               <p className="text-lapd-gold text-[10px] font-black uppercase tracking-widest">Pobieranie danych systemowych...</p>
+            </div>
+          ) : (
+            <>
+              <TabsContent value="active" className="m-0"><ReportTable data={activeReports} /></TabsContent>
+              <TabsContent value="archive" className="m-0"><ReportTable data={archivedReports} /></TabsContent>
+            </>
+          )}
+        </Tabs>
+      )}
     </div>
   );
 };

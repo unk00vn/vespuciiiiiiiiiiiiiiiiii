@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/componen
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { PlusCircle, Trash2, Users, Loader2, Edit, RefreshCcw, Check, X } from "lucide-react";
+import { PlusCircle, Trash2, Users, Loader2, Edit, RefreshCcw, Check, X, AlertCircle, Database } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
@@ -31,69 +31,12 @@ interface Officer {
   badge_number: string;
 }
 
-const SharingManager = ({ note, officers, onClose, onUpdate }: { note: Note, officers: Officer[], onClose: () => void, onUpdate: () => void }) => {
-  const [selectedIds, setSelectedIds] = useState<string[]>(note.note_shares?.map(s => s.profile_id) || []);
-  const [saving, setSaving] = useState(false);
-  const { profile } = useAuth();
-
-  const handleToggle = (id: string) => {
-    setSelectedIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
-  };
-
-  const handleSave = async () => {
-    setSaving(true);
-    try {
-      await supabase.from("note_shares").delete().eq("note_id", note.id);
-      if (selectedIds.length > 0) {
-        const inserts = selectedIds.map(pid => ({ note_id: note.id, profile_id: pid }));
-        await supabase.from("note_shares").insert(inserts);
-      }
-      toast.success("Zapisano uprawnienia.");
-      onUpdate();
-      onClose();
-    } catch (e) {
-      toast.error("Wystąpił błąd zapisu.");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <Dialog open={true} onOpenChange={onClose}>
-      <DialogContent className="border-lapd-gold bg-lapd-darker text-white">
-        <DialogHeader><DialogTitle className="text-lapd-gold font-bold uppercase">Udostępnianie Zapisu</DialogTitle></DialogHeader>
-        <ScrollArea className="h-72 pr-4 py-2">
-          {officers.filter(o => o.id !== profile?.id).map(o => (
-            <div key={o.id} className="flex items-center justify-between p-3 mb-2 border border-white/10 rounded-lg bg-white/5">
-              <span className="text-sm font-bold">#{o.badge_number} {o.last_name}</span>
-              <Button 
-                size="sm" 
-                variant={selectedIds.includes(o.id) ? "default" : "outline"} 
-                className={selectedIds.includes(o.id) ? "bg-red-600 hover:bg-red-700 text-white" : "border-lapd-gold text-lapd-gold hover:bg-lapd-gold hover:text-black"}
-                onClick={() => handleToggle(o.id)}
-              >
-                {selectedIds.includes(o.id) ? <X className="h-4 w-4 mr-1" /> : <PlusCircle className="h-4 w-4 mr-1" />}
-                {selectedIds.includes(o.id) ? "USUŃ" : "DODAJ"}
-              </Button>
-            </div>
-          ))}
-        </ScrollArea>
-        <DialogFooter>
-          <Button variant="outline" className="border-white/20 text-white" onClick={onClose} disabled={saving}>Anuluj</Button>
-          <Button className="bg-lapd-gold text-black font-bold" onClick={handleSave} disabled={saving}>
-            {saving ? <Loader2 className="animate-spin mr-2" /> : <Check className="h-4 w-4 mr-2" />} ZAPISZ ZMIANY
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-};
-
 const NotesPage = () => {
   const { profile } = useAuth();
   const [notes, setNotes] = useState<Note[]>([]);
   const [officers, setOfficers] = useState<Officer[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
   const [editingNote, setEditingNote] = useState<Note | null>(null);
   const [sharingNote, setSharingNote] = useState<Note | null>(null);
@@ -103,24 +46,36 @@ const NotesPage = () => {
   const fetchData = async () => {
     if (!profile) return;
     setLoading(true);
+    setError(false);
+
+    const safetyTimeout = setTimeout(() => {
+      if (loading) {
+        setLoading(false);
+        setError(true);
+      }
+    }, 6000);
+
     try {
-      const { data: notesData, error } = await supabase
+      const { data: notesData, error: sbError } = await supabase
         .from("notes")
         .select("*, note_shares(profile_id)")
-        .order("created_at", { ascending: false });
+        .order("created_at", { ascending: false })
+        .limit(100);
 
-      if (error) throw error;
+      if (sbError) throw sbError;
       setNotes(notesData || []);
     } catch (e) {
-      toast.error("Błąd ładowania danych.");
+      console.error("Notes fetch error:", e);
+      setError(true);
     } finally {
+      clearTimeout(safetyTimeout);
       setLoading(false);
     }
   };
 
   useEffect(() => {
     fetchData();
-    supabase.from("profiles").select("id, first_name, last_name, badge_number").eq("status", "approved").then(({data}) => setOfficers(data || []));
+    supabase.from("profiles").select("id, first_name, last_name, badge_number").eq("status", "approved").limit(200).then(({data}) => setOfficers(data || []));
   }, [profile]);
 
   const handleAdd = async () => {
@@ -133,28 +88,6 @@ const NotesPage = () => {
       setNewNote({ title: "", content: "" });
       fetchData();
     }
-  };
-
-  const handleUpdate = async () => {
-    if (!editingNote) return;
-    const { error } = await supabase.from("notes").update({ title: editingNote.title, content: editingNote.content }).eq("id", editingNote.id);
-    if (error) toast.error("Błąd zapisu.");
-    else {
-      toast.success("Zaktualizowano.");
-      setEditingNote(null);
-      fetchData();
-    }
-  };
-
-  const handleDelete = async () => {
-    if (!deletingId) return;
-    const { error } = await supabase.from("notes").delete().eq("id", deletingId);
-    if (error) toast.error("Błąd usuwania.");
-    else {
-      toast.success("Usunięto.");
-      fetchData();
-    }
-    setDeletingId(null);
   };
 
   return (
@@ -196,7 +129,17 @@ const NotesPage = () => {
       )}
 
       {loading ? (
-        <div className="flex justify-center py-20"><Loader2 className="animate-spin h-10 w-10 text-lapd-gold" /></div>
+        <div className="flex flex-col items-center justify-center py-32">
+           <Loader2 className="animate-spin text-lapd-gold h-12 w-12 mb-4" />
+           <p className="text-slate-500 text-xs font-mono uppercase">Trwa przeszukiwanie bazy danych...</p>
+        </div>
+      ) : error ? (
+        <div className="flex flex-col items-center justify-center py-20 bg-red-500/5 border border-red-500/20 rounded-lg">
+          <AlertCircle className="h-12 w-12 text-red-500 mb-4" />
+          <p className="text-white font-bold uppercase">Baza danych niedostępna</p>
+          <p className="text-slate-400 text-xs mt-1">Przekroczono czas oczekiwania na odpowiedź z terminala.</p>
+          <Button onClick={fetchData} className="mt-6 bg-red-600 hover:bg-red-700 text-white">PONÓW PRÓBĘ</Button>
+        </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {notes.map(n => (
@@ -216,68 +159,21 @@ const NotesPage = () => {
                     )}
                 </div>
                 <div className="flex gap-1">
-                    {n.author_id === profile?.id && (
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-lapd-gold hover:bg-white/5" onClick={() => setSharingNote(n)}>
-                            <Users className="h-4 w-4" />
-                        </Button>
-                    )}
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-white hover:bg-white/5" onClick={() => setEditingNote(n)}>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-white" onClick={() => setEditingNote(n)}>
                         <Edit className="h-4 w-4" />
                     </Button>
-                    {n.author_id === profile?.id && (
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-500 hover:text-red-500 hover:bg-red-500/10" onClick={() => setDeletingId(n.id)}>
-                            <Trash2 className="h-4 w-4" />
-                        </Button>
-                    )}
                 </div>
               </CardFooter>
             </Card>
           ))}
-          {notes.length === 0 && !loading && (
-            <div className="col-span-full text-center py-24 text-slate-500 italic">Baza operacyjna jest obecnie pusta.</div>
+          {notes.length === 0 && (
+            <div className="col-span-full flex flex-col items-center justify-center py-32 text-slate-600">
+               <Database className="h-12 w-12 mb-4 opacity-10" />
+               <p className="text-xs uppercase font-black tracking-tighter italic">Baza operacyjna jest obecnie pusta.</p>
+            </div>
           )}
         </div>
       )}
-
-      {/* Dialog Edycji */}
-      {editingNote && (
-        <Dialog open={true} onOpenChange={() => setEditingNote(null)}>
-          <DialogContent className="max-w-2xl border-lapd-gold bg-lapd-darker text-white">
-            <DialogHeader><DialogTitle className="text-lapd-gold font-bold uppercase">Edycja Zapisu</DialogTitle></DialogHeader>
-            <div className="space-y-4 py-4">
-                <div className="space-y-2">
-                  <Label className="text-xs font-bold text-slate-400 uppercase">Tytuł</Label>
-                  <Input value={editingNote.title} onChange={e => setEditingNote({...editingNote, title: e.target.value})} className="bg-black/40 border-white/10 text-white" />
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-xs font-bold text-slate-400 uppercase">Treść</Label>
-                  <Textarea value={editingNote.content} onChange={e => setEditingNote({...editingNote, content: e.target.value})} className="min-h-[300px] bg-black/40 border-white/10 text-white" />
-                </div>
-            </div>
-            <DialogFooter>
-                <Button variant="outline" className="border-white/20 text-white" onClick={() => setEditingNote(null)}>Anuluj</Button>
-                <Button className="bg-lapd-gold text-black font-bold" onClick={handleUpdate}>ZAPISZ ZMIANY</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      )}
-
-      {/* Dialog Udostępniania */}
-      {sharingNote && <SharingManager note={sharingNote} officers={officers} onClose={() => setSharingNote(null)} onUpdate={fetchData} />}
-
-      {/* Potwierdzenie usunięcia */}
-      <AlertDialog open={!!deletingId} onOpenChange={() => setDeletingId(null)}>
-        <AlertDialogContent className="border-2 border-red-600 bg-lapd-darker text-white">
-          <AlertDialogHeader>
-            <AlertDialogTitle className="text-red-500 font-bold uppercase">Potwierdź usunięcie</AlertDialogTitle>
-            <AlertDialogDescription className="text-slate-300">Czy na pewno chcesz trwale usunąć ten zapis z bazy operacyjnej?</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel className="bg-white/5 border-white/10 text-white">Anuluj</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} className="bg-red-600 hover:bg-red-700 text-white font-bold">USUŃ WPIS</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 };

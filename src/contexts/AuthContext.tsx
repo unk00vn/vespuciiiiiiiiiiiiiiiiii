@@ -3,7 +3,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
-import { useNavigate, useLocation, Navigate } from "react-router-dom";
+import { useNavigate, Navigate } from "react-router-dom";
 import { toast } from "sonner";
 
 export type UserRole = "Officer" | "Sergeant" | "Lieutenant" | "Captain" | "High Command";
@@ -55,8 +55,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       if (profileError || !profileData) return null;
 
-      // Próba pobrania dywizji - jeśli tabela nie istnieje (użytkownik nie odpalił SQL), zwracamy pustą listę
-      const { data: divData, error: divError } = await supabase
+      const { data: divData } = await supabase
         .from("profile_divisions")
         .select("divisions(id, name)")
         .eq("profile_id", userId);
@@ -78,21 +77,36 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     let isMounted = true;
+    
+    // Safety timeout: Jeśli w 7 sekund nic się nie wydarzy, przerywamy kręcenie
+    const timeout = setTimeout(() => {
+      if (isMounted && loading) {
+        setLoading(false);
+        console.warn("Auth initialization timed out.");
+      }
+    }, 7000);
 
     const initializeAuth = async () => {
-      const { data: { session: initialSession } } = await supabase.auth.getSession();
-      
-      if (!isMounted) return;
+      try {
+        const { data: { session: initialSession } } = await supabase.auth.getSession();
+        
+        if (!isMounted) return;
 
-      setSession(initialSession);
-      setUser(initialSession?.user || null);
-      
-      if (initialSession?.user) {
-        const userProfile = await fetchUserProfile(initialSession.user.id);
-        if (isMounted) setProfile(userProfile);
+        setSession(initialSession);
+        setUser(initialSession?.user || null);
+        
+        if (initialSession?.user) {
+          const userProfile = await fetchUserProfile(initialSession.user.id);
+          if (isMounted) setProfile(userProfile);
+        }
+      } catch (err) {
+        console.error("Auth init error:", err);
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+          clearTimeout(timeout);
+        }
       }
-      
-      if (isMounted) setLoading(false);
     };
 
     initializeAuth();
@@ -109,36 +123,33 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       } else {
         setProfile(null);
       }
-      // Ustawienie loading na false jest kluczowe, aby aplikacja się nie zawiesiła
-      setLoading(false); 
+      setLoading(false);
     });
 
     return () => {
       isMounted = false;
+      clearTimeout(timeout);
       authListener.subscription.unsubscribe();
     };
   }, []);
 
   const signIn = async (email: string, password: string) => {
-    setLoading(true); // Ustawienie loading na true podczas próby logowania
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-    
-    // onAuthStateChange zajmie się ustawieniem loading na false i pobraniem profilu
+    setLoading(true);
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) { 
       toast.error("Błąd logowania: " + error.message); 
-      setLoading(false); // Jeśli błąd, natychmiast resetujemy loading
+      setLoading(false);
       return { error }; 
     }
-    
     return { error: null };
   };
 
   const signUp = async (email: string, password: string, badgeNumber: string) => {
-    setLoading(true); // Ustawienie loading na true podczas próby rejestracji
+    setLoading(true);
     const { data, error } = await supabase.auth.signUp({ email, password });
     if (error) { 
       toast.error(error.message); 
-      setLoading(false); // Jeśli błąd, natychmiast resetujemy loading
+      setLoading(false);
       return { error }; 
     }
     
@@ -151,8 +162,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       status: "pending" 
     });
     
-    toast.info("Konto utworzone. Oczekuje na akceptację przez dowództwo.");
-    // onAuthStateChange zajmie się ustawieniem loading na false
+    toast.info("Konto utworzone. Oczekuje na akceptację.");
+    setLoading(false);
     return { error: null };
   };
 
@@ -182,8 +193,9 @@ export const ProtectedRoute = ({ children, allowedRoles }: { children: ReactNode
   const { user, profile, loading } = useAuth();
   
   if (loading) return (
-    <div className="min-h-screen flex items-center justify-center bg-lapd-navy">
-      <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-lapd-gold"></div>
+    <div className="min-h-screen flex flex-col items-center justify-center bg-lapd-navy">
+      <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-lapd-gold mb-4"></div>
+      <p className="text-lapd-gold text-xs font-mono animate-pulse uppercase">Weryfikacja autoryzacji...</p>
     </div>
   );
   
@@ -192,10 +204,10 @@ export const ProtectedRoute = ({ children, allowedRoles }: { children: ReactNode
   if (profile && profile.status === "pending") {
     return (
       <div className="min-h-screen flex items-center justify-center bg-lapd-navy p-4 text-center">
-        <div className="bg-white p-8 rounded-lg border-2 border-lapd-gold max-w-md">
-          <h2 className="text-2xl font-bold text-lapd-navy mb-4">Konto Oczekujące</h2>
-          <p className="text-gray-600 mb-6">Twoje konto zostało utworzone, ale musi zostać zaakceptowane przez kadrę dowódczą (LT+).</p>
-          <Button onClick={() => window.location.href = "/login"} className="bg-lapd-gold text-lapd-navy">Wróć do logowania</Button>
+        <div className="bg-lapd-darker p-8 rounded-lg border-2 border-lapd-gold max-w-md">
+          <h2 className="text-2xl font-bold text-lapd-gold mb-4 uppercase">Konto Oczekujące</h2>
+          <p className="text-slate-300 mb-6">Twoje konto oczekuje na akceptację przez dowództwo (LT+).</p>
+          <Button onClick={() => window.location.href = "/login"} className="bg-lapd-gold text-lapd-navy font-black">POWRÓT</Button>
         </div>
       </div>
     );
