@@ -1,15 +1,20 @@
+-- Usuwamy tabele jeśli istnieją, aby stworzyć je z poprawnymi typami
+DROP TABLE IF EXISTS officer_pin_shares;
+DROP TABLE IF EXISTS officer_pins;
+
 -- 1. Tabela główna przypięć (Teczka)
-CREATE TABLE IF NOT EXISTS officer_pins (
+CREATE TABLE officer_pins (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   created_at timestamptz DEFAULT now(),
   author_id uuid REFERENCES profiles(id) ON DELETE CASCADE,
   target_profile_id uuid REFERENCES profiles(id) ON DELETE CASCADE,
-  note_id uuid REFERENCES notes(id) ON DELETE CASCADE,
-  report_id uuid REFERENCES reports(id) ON DELETE CASCADE
+  -- Zmieniamy uuid na integer, aby pasowało do Twojej tabeli notes i reports
+  note_id integer REFERENCES notes(id) ON DELETE CASCADE,
+  report_id integer REFERENCES reports(id) ON DELETE CASCADE
 );
 
 -- 2. Tabela udostępnień konkretnym osobom
-CREATE TABLE IF NOT EXISTS officer_pin_shares (
+CREATE TABLE officer_pin_shares (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   pin_id uuid REFERENCES officer_pins(id) ON DELETE CASCADE,
   profile_id uuid REFERENCES profiles(id) ON DELETE CASCADE,
@@ -20,8 +25,7 @@ CREATE TABLE IF NOT EXISTS officer_pin_shares (
 ALTER TABLE officer_pins ENABLE ROW LEVEL SECURITY;
 ALTER TABLE officer_pin_shares ENABLE ROW LEVEL SECURITY;
 
--- 4. Polityki dla officer_pins (Teczka)
--- Widzisz piny, których jesteś autorem LUB które zostały Ci udostępnione
+-- 4. Polityki dla officer_pins
 DROP POLICY IF EXISTS "View pins" ON officer_pins;
 CREATE POLICY "View pins" ON officer_pins FOR SELECT USING (
   author_id = auth.uid() OR 
@@ -41,7 +45,7 @@ CREATE POLICY "Delete pins" ON officer_pins FOR DELETE USING (
   author_id = auth.uid()
 );
 
--- 5. Polityki dla officer_pin_shares (Udostępnienia)
+-- 5. Polityki dla officer_pin_shares
 DROP POLICY IF EXISTS "View shares" ON officer_pin_shares;
 CREATE POLICY "View shares" ON officer_pin_shares FOR SELECT USING (true);
 
