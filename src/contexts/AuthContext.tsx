@@ -26,10 +26,9 @@ interface AuthContextType {
   user: User | null;
   profile: UserProfile | null;
   loading: boolean;
-  error: string | null;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signUp: (email: string, password: string, badgeNumber: string) => Promise<{ error: any }>;
-  signOut: () => Promise<{ error: any }>;
+  signOut: () => Promise<void>;
   fetchUserProfile: (userId: string) => Promise<UserProfile | null>;
 }
 
@@ -40,7 +39,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
 
   const fetchUserProfile = async (userId: string): Promise<UserProfile | null> => {
@@ -71,79 +69,50 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         divisions: divisions as any,
       };
     } catch (e) {
-      console.error("[Auth] Profile fetch error:", e);
+      console.error("[Auth] Błąd pobierania profilu:", e);
       return null;
     }
   };
 
   useEffect(() => {
-    let isMounted = true;
-
-    // Główna funkcja inicjalizująca - pobiera sesję raz przy starcie
-    const initSession = async () => {
-      try {
-        const { data: { session: initialSession }, error: sessionError } = await supabase.auth.getSession();
-        
-        if (sessionError) throw sessionError;
-
-        if (isMounted) {
-          setSession(initialSession);
-          setUser(initialSession?.user || null);
-          
-          if (initialSession?.user) {
-            const userProfile = await fetchUserProfile(initialSession.user.id);
-            if (isMounted) setProfile(userProfile);
-          }
-        }
-      } catch (err: any) {
-        console.error("[Auth] Initialization error:", err);
-        if (isMounted) setError(err.message);
-      } finally {
-        if (isMounted) setLoading(false);
+    const init = async () => {
+      const { data: { session: initSession } } = await supabase.auth.getSession();
+      setSession(initSession);
+      setUser(initSession?.user || null);
+      if (initSession?.user) {
+        const p = await fetchUserProfile(initSession.user.id);
+        setProfile(p);
       }
+      setLoading(false);
     };
 
-    initSession();
+    init();
 
-    // Słuchacz zmian stanu autoryzacji (Login/Logout/Token Refresh)
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, currentSession) => {
-      console.log(`[Auth] Event: ${event}`);
-      
-      if (isMounted) {
-        setSession(currentSession);
-        setUser(currentSession?.user || null);
-        
-        if (currentSession?.user) {
-          const userProfile = await fetchUserProfile(currentSession.user.id);
-          if (isMounted) setProfile(userProfile);
-        } else {
-          if (isMounted) setProfile(null);
-        }
+      setSession(currentSession);
+      setUser(currentSession?.user || null);
+      if (currentSession?.user) {
+        const p = await fetchUserProfile(currentSession.user.id);
+        setProfile(p);
+      } else {
+        setProfile(null);
       }
     });
 
-    return () => {
-      isMounted = false;
-      authListener.subscription.unsubscribe();
-    };
+    return () => authListener.subscription.unsubscribe();
   }, []);
 
   const signIn = async (email: string, password: string) => {
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) toast.error(error.message);
-    return { error };
+    return await supabase.auth.signInWithPassword({ email, password });
   };
 
   const signUp = async (email: string, password: string, badgeNumber: string) => {
     const { data, error } = await supabase.auth.signUp({ email, password });
-    if (error) {
-      toast.error(error.message);
-      return { error };
-    }
+    if (error) return { error };
 
-    // Dodanie profilu bezpośrednio po rejestracji (Fallback dla triggera DB)
     const { data: roleData } = await supabase.from("roles").select("id").eq("name", "Officer").single();
-    await supabase.from("profiles").upsert({
+    
+    await supabase.from("profiles").insert({
       id: data.user?.id,
       email,
       badge_number: badgeNumber,
@@ -151,21 +120,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       status: "pending"
     });
 
-    toast.info("Account created. Awaiting approval.");
+    toast.info("Konto utworzone. Oczekiwanie na zatwierdzenie przez High Command.");
     return { error: null };
   };
 
   const signOut = async () => {
-    const { error } = await supabase.auth.signOut();
-    setProfile(null);
-    setUser(null);
-    setSession(null);
+    await supabase.auth.signOut();
     navigate("/login");
-    return { error };
   };
 
   return (
-    <AuthContext.Provider value={{ session, user, profile, loading, error, signIn, signUp, signOut, fetchUserProfile }}>
+    <AuthContext.Provider value={{ session, user, profile, loading, signIn, signUp, signOut, fetchUserProfile }}>
       {children}
     </AuthContext.Provider>
   );
@@ -180,28 +145,18 @@ export const useAuth = () => {
 export const ProtectedRoute = ({ children, allowedRoles }: { children: ReactNode; allowedRoles?: UserRole[] }) => {
   const { user, profile, loading } = useAuth();
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-lapd-navy text-lapd-gold font-mono">
-        <div className="h-10 w-10 border-t-2 border-lapd-gold animate-spin rounded-full mb-4"></div>
-        <p className="animate-pulse">CONNECTING TO LSPD TERMINAL...</p>
-      </div>
-    );
-  }
-
+  if (loading) return <div className="min-h-screen flex items-center justify-center bg-lapd-darker text-lapd-gold">WERYFIKACJA SYGNATURY...</div>;
   if (!user) return <Navigate to="/login" replace />;
   if (profile?.status === "pending") {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-lapd-navy text-white p-6 text-center">
-        <h2 className="text-lapd-gold font-black text-2xl mb-4">ACCESS RESTRICTED</h2>
-        <p className="text-slate-300">Your account is currently pending approval by High Command.</p>
-        <Button onClick={() => window.location.reload()} className="mt-8 bg-lapd-gold text-lapd-navy font-bold">RE-CHECK STATUS</Button>
+      <div className="min-h-screen flex flex-col items-center justify-center bg-lapd-navy text-white text-center p-6">
+        <h1 className="text-lapd-gold font-black text-2xl mb-4">DOSTĘP ZABLOKOWANY</h1>
+        <p className="text-slate-400">Twoje konto oczekuje na weryfikację przez Zarząd (High Command).</p>
+        <Button onClick={() => window.location.reload()} className="mt-6 bg-lapd-gold text-black font-bold">SPRAWDŹ PONOWNIE</Button>
       </div>
     );
   }
-  
-  if (!profile || profile.status === "rejected") return <Navigate to="/login" replace />;
-  if (allowedRoles && !allowedRoles.includes(profile.role_name)) return <Navigate to="/" replace />;
+  if (allowedRoles && profile && !allowedRoles.includes(profile.role_name)) return <Navigate to="/" replace />;
 
   return <>{children}</>;
 };
