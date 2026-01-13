@@ -20,36 +20,21 @@ import PersonnelPage from "./pages/PersonnelPage";
 import ChatsPage from "./pages/ChatsPage";
 import { AuthProvider, ProtectedRoute } from "./contexts/AuthContext";
 import { useEffect } from "react";
-import { supabase } from "./lib/supabase";
+import { supabase, testDatabaseConnection } from "@/integrations/supabase/client";
 
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       retry: 2,
-      staleTime: Infinity, // Dane nigdy nie stają się "stale" automatycznie
-      refetchOnWindowFocus: false, // Wyłączenie odświeżania przy powrocie do okna
-      refetchOnMount: false, // Pobieranie tylko raz przy montowaniu
-      refetchOnReconnect: false, // Wyłączenie odświeżania przy powrocie internetu
+      staleTime: Infinity,
+      refetchOnWindowFocus: false,
     },
   },
 });
 
 const App = () => {
   useEffect(() => {
-    const testConnection = async () => {
-      try {
-        const result = await supabase.rpc('version');
-        if (result.error) {
-          console.warn('Database connection test failed:', result.error);
-        } else {
-          console.log('Database connection successful');
-        }
-      } catch (err) {
-        console.warn('Database connection error:', err);
-      }
-    };
-
-    testConnection();
+    testDatabaseConnection();
   }, []);
 
   return (
