@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,42 +28,52 @@ export const ChatsPage = () => {
   const [isSending, setIsSending] = useState(false);
   
   const scrollRef = useRef<HTMLDivElement>(null);
+  const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  const fetchChats = async () => {
-    if (!profile) return;
-    setLoading(true);
-    try {
-        const { data, error } = await supabase.from("chat_participants").select(`chat_id, chats(*)`).eq("user_id", profile.id);
-        if (error) throw error;
-        setChats(data?.map(d => d.chats).filter(Boolean).sort((a,b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()) || []);
-    } catch (err) {
-        console.error("Fetch chats error:", err);
-    } finally {
-        setLoading(false);
-    }
-  };
-
-  const fetchMessages = async (chatId: string) => {
-    const { data } = await supabase.from("chat_messages").select(`*, attachments(*)`).eq("chat_id", chatId).order("created_at", { ascending: true });
-    setMessages(data || []);
-    setTimeout(scrollToBottom, 50);
-  };
-
-  const scrollToBottom = () => {
+  const scrollToBottom = useCallback(() => {
     if (scrollRef.current) {
         const scrollContainer = scrollRef.current.querySelector('[data-radix-scroll-area-viewport]');
         if (scrollContainer) scrollContainer.scrollTop = scrollContainer.scrollHeight;
     }
-  };
+  }, []);
+
+  const fetchChats = useCallback(async (isMounted: boolean) => {
+    if (!profile?.id) return;
+    setLoading(true);
+    try {
+        const { data, error } = await supabase.from("chat_participants").select(`chat_id, chats(*)`).eq("user_id", profile.id);
+        if (error) throw error;
+        if (isMounted) setChats(data?.map(d => d.chats).filter(Boolean).sort((a,b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()) || []);
+    } catch (err) {
+        console.error("Fetch chats error:", err);
+    } finally {
+        if (isMounted) setLoading(false);
+    }
+  }, [profile?.id]);
+
+  const fetchMessages = useCallback(async (chatId: string, isMounted: boolean) => {
+    const { data } = await supabase.from("chat_messages").select(`*, attachments(*)`).eq("chat_id", chatId).order("created_at", { ascending: true });
+    if (isMounted) {
+      setMessages(data || []);
+      if (scrollTimeoutRef.current) clearTimeout(scrollTimeoutRef.current);
+      scrollTimeoutRef.current = setTimeout(scrollToBottom, 50);
+    }
+  }, [scrollToBottom]);
 
   useEffect(() => {
-    fetchChats();
-    supabase.from("profiles").select("*").eq("status", "approved").then(({data}) => setAllOfficers(data || []));
-  }, [profile]);
+    let isMounted = true;
+    fetchChats(isMounted);
+    supabase.from("profiles").select("*").eq("status", "approved").then(({data}) => {
+      if (isMounted) setAllOfficers(data || []);
+    });
+    return () => { isMounted = false; };
+  }, [fetchChats]);
 
   useEffect(() => {
+    let isMounted = true;
     if (!activeChat) return;
-    fetchMessages(activeChat.id);
+    
+    fetchMessages(activeChat.id, isMounted);
 
     const channel = supabase.channel(`chat_${activeChat.id}`)
       .on('postgres_changes', { 
@@ -72,17 +82,21 @@ export const ChatsPage = () => {
         table: 'chat_messages', 
         filter: `chat_id=eq.${activeChat.id}` 
       }, (p) => {
-        if (document.visibilityState === 'visible') {
+        if (isMounted && document.visibilityState === 'visible') {
           setMessages(prev => [...prev, p.new]);
-          setTimeout(scrollToBottom, 50);
+          if (scrollTimeoutRef.current) clearTimeout(scrollTimeoutRef.current);
+          scrollTimeoutRef.current = setTimeout(scrollToBottom, 50);
         }
       }).subscribe();
 
     return () => { 
+      isMounted = false;
       supabase.removeChannel(channel); 
+      if (scrollTimeoutRef.current) clearTimeout(scrollTimeoutRef.current);
     };
-  }, [activeChat]);
+  }, [activeChat?.id, fetchMessages, scrollToBottom]);
 
+  // ... (reszta metod pomocniczych i renderowania bez zmian)
   const handleSendMessage = async () => {
     if (!newMessage.trim() || !activeChat || isSending) return;
     setIsSending(true);
@@ -113,7 +127,7 @@ export const ChatsPage = () => {
 
     if (error) return toast.error("Błąd przesyłania.");
     await supabase.from("attachments").update({ chat_id: msg.id }).in('id', files.map(f => f.id));
-    fetchMessages(activeChat.id);
+    fetchMessages(activeChat.id, true);
   };
 
   const createGroup = async (name: string, members: string[]) => {
@@ -128,7 +142,7 @@ export const ChatsPage = () => {
         if (partError) throw partError;
 
         toast.success("Konwersacja rozpoczęta.");
-        await fetchChats();
+        await fetchChats(true);
         setActiveChat(chat);
     } catch (err: any) {
         toast.error("Błąd: " + err.message);
@@ -231,6 +245,7 @@ export const ChatsPage = () => {
   );
 };
 
+// ... (NewChatDialog bez zmian strukturalnych, tylko dodane isMounted jeśli trzeba)
 const NewChatDialog = ({ officers, onCreated }: { officers: any[], onCreated: (name: string, members: string[]) => void }) => {
     const { profile } = useAuth();
     const [selected, setSelected] = useState<string[]>([]);

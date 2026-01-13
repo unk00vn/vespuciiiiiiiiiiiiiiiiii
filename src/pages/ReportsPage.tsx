@@ -1,10 +1,10 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { PlusCircle, Search, Loader2, Archive, ClipboardList, AlertCircle, RefreshCcw } from "lucide-react";
+import { PlusCircle, Search, Loader2, Archive, AlertCircle, RefreshCcw } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/lib/supabase";
@@ -19,17 +19,10 @@ const ReportsPage = () => {
   const [error, setError] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
 
-  const fetchReports = async () => {
-    if (!profile) return;
+  const fetchReports = useCallback(async (isMounted: boolean) => {
+    if (!profile?.id) return;
     setLoading(true);
     setError(false);
-
-    const safetyTimeout = setTimeout(() => {
-      if (loading) {
-        setLoading(false);
-        setError(true);
-      }
-    }, 7000);
 
     try {
       const { data, error: sbError } = await supabase
@@ -40,23 +33,25 @@ const ReportsPage = () => {
         .limit(50);
 
       if (sbError) throw sbError;
-      setReports(data || []);
+      if (isMounted) setReports(data || []);
     } catch (err) {
       console.error("Fetch reports error:", err);
-      setError(true);
+      if (isMounted) setError(true);
     } finally {
-      clearTimeout(safetyTimeout);
-      setLoading(false);
+      if (isMounted) setLoading(false);
     }
-  };
+  }, [profile?.id]);
 
   useEffect(() => { 
-    fetchReports(); 
-  }, [profile]);
+    let isMounted = true;
+    fetchReports(isMounted); 
+    return () => { isMounted = false; };
+  }, [fetchReports]);
 
+  // ... (reszta komponentu bez zmian)
   const filteredReports = reports.filter(r => 
     r.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    r.author?.last_name.toLowerCase().includes(searchTerm.toLowerCase())
+    (r.author?.last_name || "").toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const activeReports = filteredReports.filter(r => r.status === "Oczekujący" || r.status === "W toku");
@@ -138,7 +133,7 @@ const ReportsPage = () => {
         <div className="flex flex-col items-center justify-center py-20 bg-red-500/5 border border-red-500/20 rounded-lg">
           <AlertCircle className="h-12 w-12 text-red-500 mb-4" />
           <p className="text-white font-bold uppercase">Błąd danych</p>
-          <Button onClick={fetchReports} className="mt-6 bg-red-600 hover:bg-red-700 text-white">
+          <Button onClick={() => fetchReports(true)} className="mt-6 bg-red-600 hover:bg-red-700 text-white">
             <RefreshCcw className="h-4 w-4 mr-2" /> PONÓW
           </Button>
         </div>

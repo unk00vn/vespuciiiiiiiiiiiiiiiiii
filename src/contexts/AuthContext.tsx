@@ -1,5 +1,5 @@
 "use client";
-import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from "react";
+import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback, useMemo } from "react";
 import { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 import { useNavigate, Navigate } from "react-router-dom";
@@ -112,11 +112,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     };
   }, [fetchUserProfile]);
 
-  const signIn = async (email: string, password: string) => {
+  const signIn = useCallback(async (email: string, password: string) => {
     return await supabase.auth.signInWithPassword({ email, password });
-  };
+  }, []);
 
-  const signUp = async (email: string, password: string, badgeNumber: string) => {
+  const signUp = useCallback(async (email: string, password: string, badgeNumber: string) => {
     const res = await supabase.auth.signUp({ email, password });
     if (!res.error) {
         const { data: roleData } = await supabase.from("roles").select("id").eq("name", "Officer").single();
@@ -130,19 +130,31 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         toast.success("Wniosek o dostęp został wysłany.");
     }
     return res;
-  };
+  }, []);
 
-  const signOut = async () => {
+  const signOut = useCallback(async () => {
     const res = await supabase.auth.signOut();
     setProfile(null);
     setUser(null);
     setSession(null);
     navigate("/login");
     return res;
-  };
+  }, [navigate]);
+
+  // MEMOIZACJA WARTOŚCI KONTEKSTU - KLUCZ DO NAPRAWY CRASHY
+  const value = useMemo(() => ({
+    session,
+    user,
+    profile,
+    loading,
+    signIn,
+    signUp,
+    signOut,
+    fetchUserProfile
+  }), [session, user, profile, loading, signIn, signUp, signOut, fetchUserProfile]);
 
   return (
-    <AuthContext.Provider value={{ session, user, profile, loading, signIn, signUp, signOut, fetchUserProfile }}>
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );
