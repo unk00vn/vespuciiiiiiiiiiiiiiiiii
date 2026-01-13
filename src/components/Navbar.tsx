@@ -5,10 +5,11 @@ import { Bell, User } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
-import { useAuth } from "@/contexts/AuthContext"; // Import useAuth
+import { useAuth } from "@/contexts/AuthContext";
+import { NotificationBell } from "./NotificationBell";
 
 export const Navbar = () => {
-  const { profile } = useAuth(); // Pobierz profil użytkownika
+  const { profile } = useAuth();
 
   // Generuj inicjały na podstawie imienia i nazwiska
   const getInitials = (firstName?: string, lastName?: string) => {
@@ -23,9 +24,7 @@ export const Navbar = () => {
         <h2 className="text-xl font-semibold text-lapd-navy">Panel LSPD</h2>
       </div>
       <div className="flex items-center space-x-4">
-        <Button variant="ghost" size="icon" className="text-lapd-navy hover:bg-gray-100">
-          <Bell className="h-5 w-5" />
-        </Button>
+        <NotificationBell />
         <Link to="/profile">
           <Avatar className="h-8 w-8 border-2 border-lapd-gold">
             <AvatarImage src={profile?.avatar_url || ""} alt={profile?.email || "User Avatar"} />

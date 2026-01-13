@@ -14,8 +14,8 @@ import ReportsPage from "./pages/ReportsPage";
 import DivisionsPage from "./pages/DivisionsPage";
 import AnnouncementsPage from "./pages/AnnouncementsPage";
 import NotesPage from "./pages/NotesPage";
+import CreateReportPage from "./pages/CreateReportPage";
 import { AuthProvider, ProtectedRoute } from "./contexts/AuthContext";
-// import CreateAdminUser from "./components/CreateAdminUser"; // Usunięto import
 
 const queryClient = new QueryClient();
 
@@ -26,34 +26,31 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <AuthProvider>
-          {/* Temporary component to create admin user - REMOVE AFTER USE */}
-          {/* <CreateAdminUser /> */} {/* Usunięto komponent */}
           <Routes>
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
-            <Route
-              path="/*"
-              element={
-                <ProtectedRoute>
-                  <Layout>
-                    <Routes>
-                      <Route path="/" element={<Dashboard />} />
-                      <Route path="/profile" element={<ProfilePage />} />
-                      <Route path="/reports" element={<ReportsPage />} />
-                      <Route path="/divisions" element={<DivisionsPage />} />
-                      <Route path="/announcements" element={<AnnouncementsPage />} />
-                      <Route path="/notes" element={<NotesPage />} />
-                      <Route
-                        path="/account-management"
-                        element={<ProtectedRoute allowedRoles={["Lieutenant", "Captain", "High Command"]}><AccountManagementPage /></ProtectedRoute>}
-                      />
-                      {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-                      <Route path="*" element={<NotFound />} />
-                    </Routes>
-                  </Layout>
-                </ProtectedRoute>
-              }
-            />
+            <Route path="/*" element={
+              <ProtectedRoute>
+                <Layout>
+                  <Routes>
+                    <Route path="/" element={<Dashboard />} />
+                    <Route path="/profile" element={<ProfilePage />} />
+                    <Route path="/reports" element={<ReportsPage />} />
+                    <Route path="/reports/new" element={<CreateReportPage />} />
+                    <Route path="/divisions" element={<DivisionsPage />} />
+                    <Route path="/announcements" element={<AnnouncementsPage />} />
+                    <Route path="/notes" element={<NotesPage />} />
+                    <Route path="/account-management" element={
+                      <ProtectedRoute allowedRoles={["Lieutenant", "Captain", "High Command"]}>
+                        <AccountManagementPage />
+                      </ProtectedRoute>
+                    } />
+                    {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+                    <Route path="*" element={<NotFound />} />
+                  </Routes>
+                </Layout>
+              </ProtectedRoute>
+            } />
           </Routes>
         </AuthProvider>
       </BrowserRouter>

@@ -3,6 +3,7 @@
 import React from "react";
 import { Sidebar } from "./Sidebar";
 import { Navbar } from "./Navbar";
+import { ChatWidget } from "./ChatWidget";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -18,6 +19,7 @@ export const Layout = ({ children }: LayoutProps) => {
           {children}
         </main>
       </div>
+      <ChatWidget />
     </div>
   );
 };
