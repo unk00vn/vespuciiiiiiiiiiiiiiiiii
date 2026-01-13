@@ -37,6 +37,7 @@ TO authenticated
 USING (auth.uid() = owner_id);
 
 -- Polityka: Użytkownik może usuwać swoje załączniki
+CREATE POLICY "Allow owners to delete their attachments"
 ON attachments FOR DELETE
 TO authenticated
 USING (auth.uid() = owner_id);
