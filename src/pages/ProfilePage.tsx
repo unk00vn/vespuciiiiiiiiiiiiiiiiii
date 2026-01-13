@@ -1,26 +1,23 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth, UserProfile } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
-import { User as UserIcon, Mail, Briefcase, Users, Upload, Loader2 } from "lucide-react";
+import { User as UserIcon, Mail, Briefcase, Shield, CheckCircle, Clock, XCircle, Users } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
-import { useFileUpload } from "@/hooks/useFileUpload";
 
 const ProfilePage = () => {
   const { profile, user, loading, fetchUserProfile } = useAuth();
-  const { uploadFiles, isUploading } = useFileUpload();
-  
   const [isEditing, setIsEditing] = useState(false);
   const [firstName, setFirstName] = useState(profile?.first_name || "");
   const [lastName, setLastName] = useState(profile?.last_name || "");
   const [avatarUrl, setAvatarUrl] = useState(profile?.avatar_url || "");
+  const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
     if (profile) {
@@ -31,7 +28,10 @@ const ProfilePage = () => {
   }, [profile]);
 
   const handleSaveProfile = async () => {
-    if (!user) return;
+    if (!user) {
+      toast.error("Błąd: Użytkownik nie jest zalogowany.");
+      return;
+    }
 
     const { error } = await supabase
       .from("profiles")
@@ -39,105 +39,188 @@ const ProfilePage = () => {
       .eq("id", user.id);
 
     if (error) {
-      toast.error("Błąd: " + error.message);
+      toast.error("Błąd podczas aktualizacji profilu: " + error.message);
+      console.error("Error updating profile:", error);
     } else {
-      toast.success("Profil zaktualizowany!");
-      await fetchUserProfile(user.id);
+      toast.success("Profil zaktualizowany pomyślnie!");
+      await fetchUserProfile(user.id); // Refresh profile in context
       setIsEditing(false);
     }
   };
-  
-  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    // FUNKCJONALNOŚĆ WYŁĄCZONA
-    toast.error("Upload avatara jest tymczasowo wyłączony.");
-    e.target.value = '';
+
+  const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (!user) {
+      toast.error("Błąd: Użytkownik nie jest zalogowany.");
+      return;
+    }
+
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setUploading(true);
+    const fileExt = file.name.split(".").pop();
+    const fileName = `${user.id}-${Math.random()}.${fileExt}`;
+    const filePath = `avatars/${fileName}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from("avatars") // Ensure you have a bucket named 'avatars' in Supabase Storage
+      .upload(filePath, file);
+
+    if (uploadError) {
+      toast.error("Błąd podczas przesyłania awatara: " + uploadError.message);
+      console.error("Error uploading avatar:", uploadError);
+      setUploading(false);
+      return;
+    }
+
+    const { data: publicUrlData } = supabase.storage
+      .from("avatars")
+      .getPublicUrl(filePath);
+
+    if (publicUrlData?.publicUrl) {
+      setAvatarUrl(publicUrlData.publicUrl);
+      toast.success("Awatar przesłany pomyślnie! Zapisz profil, aby zastosować zmiany.");
+    } else {
+      toast.error("Nie udało się uzyskać publicznego URL awatara.");
+    }
+    setUploading(false);
   };
 
   if (loading || !profile) {
-    return <div className="text-center p-20 text-white">Ładowanie profilu...</div>;
+    return <div className="text-center text-lapd-navy">Ładowanie profilu...</div>;
   }
+
+  const getStatusIcon = (status: UserProfile["status"]) => {
+    switch (status) {
+      case "approved":
+        return <CheckCircle className="h-5 w-5 text-green-500" />;
+      case "pending":
+        return <Clock className="h-5 w-5 text-yellow-500" />;
+      case "rejected":
+        return <XCircle className="h-5 w-5 text-red-500" />;
+      default:
+        return null;
+    }
+  };
+
+  const getStatusText = (status: UserProfile["status"]) => {
+    switch (status) {
+      case "approved":
+        return "Akceptowane";
+      case "pending":
+        return "Oczekujące";
+      case "rejected":
+        return "Odrzucone";
+      default:
+        return "Nieznany";
+    }
+  };
 
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="text-3xl font-bold text-white">Mój Profil</h1>
+      <h1 className="text-3xl font-bold text-lapd-navy">Mój Profil</h1>
+      <p className="text-gray-700">Przeglądaj i edytuj swoje dane osobowe oraz status.</p>
 
-      <Card className="bg-white/5 border-lapd-gold shadow-md text-white">
+      <Card className="bg-lapd-white border-lapd-gold shadow-md">
         <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="text-white">Dane Funkcjonariusza</CardTitle>
+          <CardTitle className="text-lapd-navy">Informacje o funkcjonariuszu</CardTitle>
           <Button
             variant="outline"
-            className="border-lapd-gold text-lapd-gold hover:bg-lapd-gold hover:text-lapd-navy"
+            className="bg-lapd-gold text-lapd-navy hover:bg-yellow-600"
             onClick={() => setIsEditing(!isEditing)}
           >
-            {isEditing ? "Anuluj" : "Edytuj Dane"}
+            {isEditing ? "Anuluj" : "Edytuj"}
           </Button>
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="flex items-center space-x-4">
-            <div className="relative">
-                <Avatar className="h-24 w-24 border-4 border-lapd-gold">
-                  <AvatarImage src={avatarUrl} />
-                  <AvatarFallback className="bg-lapd-navy text-lapd-gold text-2xl">
-                    {profile.first_name?.[0]}{profile.last_name?.[0]}
-                  </AvatarFallback>
-                </Avatar>
-                {isEditing && (
-                    <label htmlFor="avatar-upload" className="absolute bottom-0 right-0 bg-gray-600 p-1 rounded-full cursor-not-allowed shadow-md">
-                        <Upload className="h-5 w-5 text-white" />
-                        <input 
-                            id="avatar-upload" 
-                            type="file" 
-                            accept="image/*" 
-                            onChange={handleAvatarUpload} 
-                            className="hidden" 
-                            disabled={true} // Zablokowanie inputu
-                        />
-                    </label>
-                )}
-            </div>
+            <Avatar className="h-24 w-24 border-4 border-lapd-gold">
+              <AvatarImage src={avatarUrl || "https://github.com/shadcn.png"} alt={profile.email} />
+              <AvatarFallback className="bg-lapd-navy text-lapd-gold text-2xl">
+                {profile.first_name ? profile.first_name[0] : ""}{profile.last_name ? profile.last_name[0] : ""}
+              </AvatarFallback>
+            </Avatar>
+            {isEditing && (
+              <div className="flex flex-col space-y-2">
+                <Label htmlFor="avatar" className="text-lapd-navy">Zmień awatar</Label>
+                <Input
+                  id="avatar"
+                  type="file"
+                  accept="image/*"
+                  onChange={handleAvatarUpload}
+                  disabled={uploading}
+                  className="border-lapd-gold focus:ring-lapd-gold focus:border-lapd-gold"
+                />
+                {uploading && <p className="text-sm text-gray-500">Przesyłanie...</p>}
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <Label className="text-lapd-gold flex items-center mb-1"><Mail className="h-4 w-4 mr-2" /> Email</Label>
-              <Input value={profile.email} readOnly className="bg-black/40 border-lapd-gold text-white" />
+              <Label htmlFor="email" className="text-lapd-navy flex items-center">
+                <Mail className="h-4 w-4 mr-2" /> Email
+              </Label>
+              <Input id="email" value={profile.email} readOnly className="mt-1 border-lapd-gold bg-gray-50" />
             </div>
             <div>
-              <Label className="text-lapd-gold flex items-center mb-1"><Briefcase className="h-4 w-4 mr-2" /> Odznaka</Label>
-              <Input value={profile.badge_number} readOnly className="bg-black/40 border-lapd-gold font-bold text-white" />
+              <Label htmlFor="badgeNumber" className="text-lapd-navy flex items-center">
+                <Briefcase className="h-4 w-4 mr-2" /> Numer Odznaki
+              </Label>
+              <Input id="badgeNumber" value={profile.badge_number} readOnly className="mt-1 border-lapd-gold bg-gray-50" />
             </div>
             <div>
-              <Label className="text-lapd-gold flex items-center mb-1"><UserIcon className="h-4 w-4 mr-2" /> Imię</Label>
-              <Input value={firstName} onChange={(e) => setFirstName(e.target.value)} readOnly={!isEditing} className="border-lapd-gold text-white" />
+              <Label htmlFor="firstName" className="text-lapd-navy flex items-center">
+                <UserIcon className="h-4 w-4 mr-2" /> Imię
+              </Label>
+              <Input
+                id="firstName"
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+                readOnly={!isEditing}
+                className="mt-1 border-lapd-gold focus:ring-lapd-gold focus:border-lapd-gold"
+              />
             </div>
             <div>
-              <Label className="text-lapd-gold flex items-center mb-1"><UserIcon className="h-4 w-4 mr-2" /> Nazwisko</Label>
-              <Input value={lastName} onChange={(e) => setLastName(e.target.value)} readOnly={!isEditing} className="border-lapd-gold text-white" />
+              <Label htmlFor="lastName" className="text-lapd-navy flex items-center">
+                <UserIcon className="h-4 w-4 mr-2" /> Nazwisko
+              </Label>
+              <Input
+                id="lastName"
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
+                readOnly={!isEditing}
+                className="mt-1 border-lapd-gold focus:ring-lapd-gold focus:border-lapd-gold"
+              />
             </div>
+            <div>
+              <Label htmlFor="role" className="text-lapd-navy flex items-center">
+                <Shield className="h-4 w-4 mr-2" /> Rola
+              </Label>
+              <Input id="role" value={profile.role_name} readOnly className="mt-1 border-lapd-gold bg-gray-50" />
+            </div>
+            <div>
+              <Label htmlFor="status" className="text-lapd-navy flex items-center">
+                {getStatusIcon(profile.status)} Status
+              </Label>
+              <Input id="status" value={getStatusText(profile.status)} readOnly className="mt-1 border-lapd-gold bg-gray-50" />
+            </div>
+            {profile.division_name && ( // Zmieniono z division_id na division_name
+              <div>
+                <Label htmlFor="division" className="text-lapd-navy flex items-center">
+                  <Users className="h-4 w-4 mr-2" /> Dywizja
+                </Label>
+                <Input id="division" value={profile.division_name} readOnly className="mt-1 border-lapd-gold bg-gray-50" />
+              </div>
+            )}
           </div>
-
-          <div className="border-t border-white/10 pt-6">
-            <Label className="text-lapd-gold flex items-center mb-3 text-lg font-bold">
-              <Users className="h-5 w-5 mr-2 text-lapd-gold" /> Przynależność do Dywizji
-            </Label>
-            <div className="flex flex-wrap gap-2">
-              {profile.divisions && profile.divisions.length > 0 ? (
-                <div className="flex flex-wrap gap-2">
-                  {profile.divisions.map(d => (
-                    <Badge key={d.id} className="bg-lapd-gold text-lapd-navy px-4 py-2 text-sm">
-                      {d.name}
-                    </Badge>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-slate-400 italic text-sm">Brak przypisanych dywizji.</p>
-              )}
-            </div>
-          </div>
-
           {isEditing && (
-            <Button className="w-full bg-lapd-gold text-lapd-navy font-black uppercase" onClick={handleSaveProfile} disabled={isUploading}>
-              ZAPISZ ZMIANY
+            <Button
+              className="w-full bg-lapd-gold text-lapd-navy hover:bg-yellow-600 transition-colors duration-200"
+              onClick={handleSaveProfile}
+              disabled={loading || uploading}
+            >
+              {loading ? "Zapisywanie..." : "Zapisz zmiany"}
             </Button>
           )}
         </CardContent>
