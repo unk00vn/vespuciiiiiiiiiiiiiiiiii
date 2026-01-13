@@ -1,4 +1,4 @@
--- Usuwamy tabele jeśli istnieją, aby stworzyć je z poprawnymi typami
+-- Usuwamy tabele, aby zdefiniować je z poprawnymi typami
 DROP TABLE IF EXISTS officer_pin_shares;
 DROP TABLE IF EXISTS officer_pins;
 
@@ -8,9 +8,9 @@ CREATE TABLE officer_pins (
   created_at timestamptz DEFAULT now(),
   author_id uuid REFERENCES profiles(id) ON DELETE CASCADE,
   target_profile_id uuid REFERENCES profiles(id) ON DELETE CASCADE,
-  -- Zmieniamy uuid na integer, aby pasowało do Twojej tabeli notes i reports
-  note_id integer REFERENCES notes(id) ON DELETE CASCADE,
-  report_id integer REFERENCES reports(id) ON DELETE CASCADE
+  -- Dopasowanie typów:
+  note_id integer REFERENCES notes(id) ON DELETE CASCADE, -- Notatki używają integer
+  report_id uuid REFERENCES reports(id) ON DELETE CASCADE -- Raporty używają uuid
 );
 
 -- 2. Tabela udostępnień konkretnym osobom
