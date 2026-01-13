@@ -1,13 +1,18 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback, useMemo } from "react";
 import { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
-import { useNavigate, useLocation, Navigate } from "react-router-dom";
+import { useNavigate, Navigate, useLocation } from "react-router-dom";
 import { toast } from "sonner";
 
-// Definicje typów dla ról i profilu
+// Definicje typów
 export type UserRole = "Officer" | "Sergeant" | "Lieutenant" | "Captain" | "High Command";
+
+export interface Division {
+  id: number;
+  name: string;
+}
 
 export interface UserProfile {
   id: string;
@@ -18,8 +23,7 @@ export interface UserProfile {
   role_id: number;
   role_name: UserRole;
   role_level: number;
-  division_id?: number;
-  division_name?: string; // Dodano pole division_name
+  divisions: Division[]; // Używamy tablicy dla wielu dywizji
   status: "pending" | "approved" | "rejected";
   avatar_url?: string;
 }
@@ -29,9 +33,9 @@ interface AuthContextType {
   user: User | null;
   profile: UserProfile | null;
   loading: boolean;
-  signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
-  signUp: (email: string, password: string, badgeNumber: string) => Promise<{ error: Error | null }>;
-  signOut: () => Promise<{ error: Error | null }>;
+  signIn: (email: string, password: string) => Promise<{ error: any }>;
+  signUp: (email: string, password: string, badgeNumber: string) => Promise<{ error: any }>;
+  signOut: () => Promise<{ error: any }>;
   fetchUserProfile: (userId: string) => Promise<UserProfile | null>;
 }
 
@@ -43,126 +47,121 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+  const location = useLocation();
 
-  const fetchUserProfile = async (userId: string): Promise<UserProfile | null> => {
-    const { data, error } = await supabase
+  const fetchUserProfile = useCallback(async (userId: string): Promise<UserProfile | null> => {
+    const { data: profileData, error: profileError } = await supabase
       .from("profiles")
       .select(`
         id, email, badge_number, first_name, last_name, status, avatar_url,
         roles (id, name, level),
-        divisions (id, name)
+        profile_divisions (divisions (id, name))
       `)
       .eq("id", userId)
       .single();
 
-    if (error) {
-      console.error("Error fetching user profile:", error);
+    if (profileError || !profileData || !profileData.roles) {
+      console.error("Error fetching user profile:", profileError);
       return null;
     }
 
-    if (data) {
-      return {
-        id: data.id,
-        email: data.email,
-        badge_number: data.badge_number,
-        first_name: data.first_name || undefined,
-        last_name: data.last_name || undefined,
-        role_id: data.roles.id,
-        role_name: data.roles.name as UserRole,
-        role_level: data.roles.level,
-        division_id: data.divisions?.id || undefined,
-        division_name: data.divisions?.name || undefined, // Dodano division_name
-        status: data.status as "pending" | "approved" | "rejected",
-        avatar_url: data.avatar_url || undefined,
-      };
-    }
-    return null;
-  };
+    const divisions = profileData.profile_divisions.map(pd => pd.divisions).filter(Boolean) as Division[];
+
+    return {
+      id: profileData.id,
+      email: profileData.email,
+      badge_number: profileData.badge_number,
+      first_name: profileData.first_name || undefined,
+      last_name: profileData.last_name || undefined,
+      role_id: profileData.roles.id,
+      role_name: profileData.roles.name as UserRole,
+      role_level: profileData.roles.level,
+      divisions: divisions,
+      status: profileData.status as "pending" | "approved" | "rejected",
+      avatar_url: profileData.avatar_url || undefined,
+    };
+  }, []);
 
   useEffect(() => {
-    const { data: authListener } = supabase.auth.onAuthStateChange(
-      async (_event, currentSession) => {
-        setSession(currentSession);
-        setUser(currentSession?.user || null);
+    let isMounted = true;
 
-        if (currentSession?.user) {
-          const userProfile = await fetchUserProfile(currentSession.user.id);
-          setProfile(userProfile);
-          if (userProfile?.status === "pending") {
-            toast.info("Twoje konto oczekuje na akceptację przez dowództwo.");
-            navigate("/login"); // Redirect to login if pending
-          } else if (userProfile?.status === "rejected") {
-            toast.error("Twoje konto zostało odrzucone. Skontaktuj się z dowództwem.");
-            navigate("/login"); // Redirect to login if rejected
-          } else if (userProfile?.status === "approved" && location.pathname === "/login") {
-            navigate("/"); // Redirect to dashboard if approved and on login page
-          }
-        } else {
-          setProfile(null);
+    const handleAuthChange = async (event: string, currentSession: Session | null) => {
+      if (!isMounted) return;
+
+      setSession(currentSession);
+      setUser(currentSession?.user || null);
+
+      if (currentSession?.user) {
+        const p = await fetchUserProfile(currentSession.user.id);
+        if (!isMounted) return;
+        setProfile(p);
+
+        if (p?.status === "pending") {
+          toast.info("Twoje konto oczekuje na akceptację przez dowództwo.");
           if (location.pathname !== "/login" && location.pathname !== "/register") {
-            navigate("/login");
+             navigate("/login");
           }
+        } else if (p?.status === "rejected") {
+          toast.error("Twoje konto zostało odrzucone.");
+          if (location.pathname !== "/login" && location.pathname !== "/register") {
+             navigate("/login");
+          }
+        } else if (p?.status === "approved" && (location.pathname === "/login" || location.pathname === "/register")) {
+          navigate("/");
         }
-        setLoading(false);
-      }
-    );
-
-    // Initial check
-    supabase.auth.getSession().then(async ({ data: { session: initialSession } }) => {
-      setSession(initialSession);
-      setUser(initialSession?.user || null);
-      if (initialSession?.user) {
-        const userProfile = await fetchUserProfile(initialSession.user.id);
-        setProfile(userProfile);
-        if (userProfile?.status === "pending" || userProfile?.status === "rejected") {
+      } else {
+        setProfile(null);
+        if (location.pathname !== "/login" && location.pathname !== "/register") {
           navigate("/login");
         }
       }
       setLoading(false);
+    };
+
+    // Initial session check
+    supabase.auth.getSession().then(({ data: { session: initialSession } }) => {
+      handleAuthChange('INITIAL_SESSION', initialSession);
     });
 
-    return () => {
-      authListener.subscription.unsubscribe();
-    };
-  }, [navigate]);
+    // Listener for subsequent changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(handleAuthChange);
 
-  const signIn = async (email: string, password: string) => {
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
+  }, [fetchUserProfile, navigate, location.pathname]);
+
+  const signIn = useCallback(async (email: string, password: string) => {
     setLoading(true);
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    setLoading(false);
     if (error) {
       toast.error(error.message);
-      setLoading(false);
-      return { error };
     }
-    if (data.user) {
-      const userProfile = await fetchUserProfile(data.user.id);
-      if (userProfile?.status === "pending") {
-        toast.info("Twoje konto oczekuje na akceptację przez dowództwo.");
-        await supabase.auth.signOut(); // Force logout if pending
-        return { error: new Error("Account pending approval") };
-      } else if (userProfile?.status === "rejected") {
-        toast.error("Twoje konto zostało odrzucone. Skontaktuj się z dowództwem.");
-        await supabase.auth.signOut(); // Force logout if rejected
-        return { error: new Error("Account rejected") };
-      }
-      setProfile(userProfile);
-      toast.success("Zalogowano pomyślnie!");
-      navigate("/");
-    }
-    setLoading(false);
-    return { error: null };
-  };
+    return { error };
+  }, []);
 
-  const signUp = async (email: string, password: string, badgeNumber: string) => {
+  const signUp = useCallback(async (email: string, password: string, badgeNumber: string) => {
     setLoading(true);
+    
+    // 1. Find default role ID (Officer)
+    const { data: roleData, error: roleError } = await supabase
+      .from("roles")
+      .select("id")
+      .eq("name", "Officer")
+      .single();
+
+    if (roleError || !roleData) {
+      toast.error("Błąd rejestracji: Nie można znaleźć domyślnej roli.");
+      setLoading(false);
+      return { error: roleError || new Error("Role not found") };
+    }
+
+    // 2. Sign up user
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email,
       password,
-      options: {
-        data: {
-          badge_number: badgeNumber, // Pass badge_number to auth.users metadata
-        },
-      },
     });
 
     if (authError) {
@@ -171,22 +170,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       return { error: authError };
     }
 
+    // 3. Create profile entry
     if (authData.user) {
-      // Insert profile into public.profiles table with default 'pending' status and 'Officer' role
-      const { data: roleData, error: roleError } = await supabase
-        .from("roles")
-        .select("id, name, level")
-        .eq("name", "Officer")
-        .single();
-
-      if (roleError || !roleData) {
-        console.error("Error fetching Officer role:", roleError);
-        toast.error("Błąd podczas rejestracji: Nie można przypisać roli.");
-        await supabase.auth.signOut(); // Log out the user if profile creation fails
-        setLoading(false);
-        return { error: roleError || new Error("Officer role not found") };
-      }
-
       const { error: profileError } = await supabase.from("profiles").insert({
         id: authData.user.id,
         email: email,
@@ -198,7 +183,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (profileError) {
         console.error("Error creating user profile:", profileError);
         toast.error("Błąd podczas tworzenia profilu użytkownika.");
-        await supabase.auth.signOut(); // Log out the user if profile creation fails
         setLoading(false);
         return { error: profileError };
       }
@@ -208,27 +192,34 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
     setLoading(false);
     return { error: null };
-  };
+  }, [navigate]);
 
-  const signOut = async () => {
+  const signOut = useCallback(async () => {
     setLoading(true);
     const { error } = await supabase.auth.signOut();
+    setLoading(false);
     if (error) {
       toast.error(error.message);
-      setLoading(false);
       return { error };
     }
-    setSession(null);
-    setUser(null);
-    setProfile(null);
     toast.success("Wylogowano pomyślnie.");
-    navigate("/login");
-    setLoading(false);
+    // Navigation handled by useEffect listener
     return { error: null };
-  };
+  }, []);
+
+  const value = useMemo(() => ({
+    session,
+    user,
+    profile,
+    loading,
+    signIn,
+    signUp,
+    signOut,
+    fetchUserProfile
+  }), [session, user, profile, loading, signIn, signUp, signOut, fetchUserProfile]);
 
   return (
-    <AuthContext.Provider value={{ session, user, profile, loading, signIn, signUp, signOut, fetchUserProfile }}>
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );
@@ -245,26 +236,42 @@ export const useAuth = () => {
 interface ProtectedRouteProps {
   children: ReactNode;
   allowedRoles?: UserRole[];
-  redirectPath?: string;
 }
 
-export const ProtectedRoute = ({ children, allowedRoles, redirectPath = "/login" }: ProtectedRouteProps) => {
+export const ProtectedRoute = ({ children, allowedRoles }: ProtectedRouteProps) => {
   const { user, profile, loading } = useAuth();
-  const location = useLocation();
 
   if (loading) {
     return <div className="min-h-screen flex items-center justify-center bg-lapd-navy text-lapd-white">Ładowanie...</div>;
   }
 
-  if (!user || !profile || profile.status !== "approved") {
-    // Redirect unauthenticated or unapproved users
-    return <Navigate to={redirectPath} replace state={{ from: location }} />;
+  if (!user || !profile) {
+    // Redirect unauthenticated users
+    return <Navigate to="/login" replace />;
+  }
+  
+  if (profile.status !== "approved") {
+    // Show pending/rejected screen if not approved
+    return (
+      <div className="min-h-screen bg-lapd-navy flex flex-col items-center justify-center text-lapd-white p-8 text-center">
+        <h2 className="text-xl font-black text-lapd-gold uppercase mb-4 tracking-widest">Ograniczony Dostęp</h2>
+        <p className="text-gray-400 max-w-md text-sm">
+          Twoje konto ({profile.badge_number}) jest w statusie: 
+          <span className={`font-bold ml-1 ${profile.status === 'pending' ? 'text-yellow-500' : 'text-red-500'}`}>
+            {profile.status === 'pending' ? 'OCZEKUJĄCY' : 'ODRZUCONY'}
+          </span>.
+        </p>
+        <Button onClick={() => supabase.auth.signOut()} className="mt-8 bg-lapd-gold text-lapd-navy hover:bg-yellow-600">
+          Wyloguj
+        </Button>
+      </div>
+    );
   }
 
   if (allowedRoles && !allowedRoles.includes(profile.role_name)) {
     // Redirect if user role is not allowed
     toast.error("Brak uprawnień do dostępu do tej strony.");
-    return <Navigate to="/" replace />; // Redirect to dashboard or another appropriate page
+    return <Navigate to="/" replace />;
   }
 
   return <>{children}</>;
