@@ -117,12 +117,12 @@ const DivisionsPage = () => {
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-slate-800">Dywizje LSPD</h1>
-          <p className="text-slate-700">Przeglądaj i zarządzaj jednostkami specjalistycznymi.</p>
+          <h1 className="text-3xl font-bold text-white">Dywizje LSPD</h1>
+          <p className="text-slate-400">Przeglądaj i zarządzaj jednostkami specjalistycznymi.</p>
         </div>
         {isHC && (
           <Button 
-            className="bg-lapd-gold text-slate-800 hover:bg-yellow-600 font-bold"
+            className="bg-lapd-gold text-lapd-navy hover:bg-yellow-600 font-bold"
             onClick={handleOpenAdd}
           >
             <PlusCircle className="mr-2 h-4 w-4" />
@@ -131,13 +131,13 @@ const DivisionsPage = () => {
         )}
       </div>
 
-      <Card className="bg-lapd-white border-lapd-gold shadow-md">
+      <Card className="bg-white/5 border-lapd-gold shadow-md text-white">
         <CardHeader>
-          <CardTitle className="text-slate-800 flex items-center">
+          <CardTitle className="text-white flex items-center">
             <Users className="h-5 w-5 mr-2" />
             Struktura Jednostek
           </CardTitle>
-          <CardDescription className="text-slate-700">
+          <CardDescription className="text-slate-400">
             Poniżej znajduje się lista wszystkich aktywnych dywizji w departamencie.
           </CardDescription>
         </CardHeader>
@@ -159,10 +159,10 @@ const DivisionsPage = () => {
                 </TableHeader>
                 <TableBody>
                   {divisions.map((division) => (
-                    <TableRow key={division.id} className="hover:bg-gray-50">
-                      <TableCell className="font-mono text-center text-slate-800">{division.id}</TableCell>
-                      <TableCell className="font-bold text-slate-800">{division.name}</TableCell>
-                      <TableCell className="text-slate-800 text-sm max-w-md">
+                    <TableRow key={division.id} className="hover:bg-white/10">
+                      <TableCell className="font-mono text-center text-slate-300">{division.id}</TableCell>
+                      <TableCell className="font-bold text-white">{division.name}</TableCell>
+                      <TableCell className="text-slate-300 text-sm max-w-md">
                         {division.description || <span className="text-gray-500 italic">Brak opisu</span>}
                       </TableCell>
                       {isHC && (
@@ -170,7 +170,7 @@ const DivisionsPage = () => {
                           <Button 
                             variant="ghost" 
                             size="sm" 
-                            className="text-slate-800 hover:bg-lapd-gold/20"
+                            className="text-lapd-gold hover:bg-lapd-gold/20"
                             onClick={() => handleOpenEdit(division)}
                           >
                             <Edit className="h-4 w-4 mr-1" />
@@ -195,43 +195,43 @@ const DivisionsPage = () => {
       </Card>
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="bg-lapd-white border-2 border-lapd-gold">
+        <DialogContent className="bg-lapd-darker border-2 border-lapd-gold text-white">
           <DialogHeader>
-            <DialogTitle className="text-slate-800 uppercase font-black">
+            <DialogTitle className="text-lapd-gold uppercase font-black">
               {isEditing ? "Edytuj Dywizję" : "Nowa Dywizja"}
             </DialogTitle>
-            <DialogDescription className="text-slate-700">
+            <DialogDescription className="text-slate-400">
               Wprowadź dane dywizji. Zmiany będą widoczne dla wszystkich funkcjonariuszy.
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="name" className="text-slate-800 font-bold uppercase text-xs">Nazwa Dywizji</Label>
+              <Label htmlFor="name" className="text-lapd-gold font-bold uppercase text-xs">Nazwa Dywizji</Label>
               <Input
                 id="name"
                 value={currentDivision.name}
                 onChange={(e) => setCurrentDivision({ ...currentDivision, name: e.target.value })}
                 placeholder="np. Detective Bureau"
-                className="border-lapd-gold focus:ring-lapd-navy text-slate-800"
+                className="border-lapd-gold bg-black/40 focus:ring-lapd-gold text-white"
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="desc" className="text-slate-800 font-bold uppercase text-xs">Opis i Zadania</Label>
+              <Label htmlFor="desc" className="text-lapd-gold font-bold uppercase text-xs">Opis i Zadania</Label>
               <Textarea
                 id="desc"
                 value={currentDivision.description}
                 onChange={(e) => setCurrentDivision({ ...currentDivision, description: e.target.value })}
                 placeholder="Opisz przeznaczenie tej jednostki..."
-                className="border-lapd-gold min-h-[100px] text-slate-800"
+                className="border-lapd-gold min-h-[100px] bg-black/40 text-white"
               />
             </div>
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Anuluj</Button>
+            <Button variant="outline" className="bg-white/10 text-white hover:bg-white/20" onClick={() => setIsDialogOpen(false)}>Anuluj</Button>
             <Button 
-              className="bg-lapd-navy text-lapd-gold font-bold"
+              className="bg-lapd-gold text-lapd-navy font-bold"
               onClick={handleSave}
               disabled={saving}
             >

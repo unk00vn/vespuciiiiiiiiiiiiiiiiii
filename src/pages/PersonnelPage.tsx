@@ -88,9 +88,9 @@ const PersonnelPage = () => {
 
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="text-3xl font-bold text-slate-800">Lista Funkcjonariuszy</h1>
+      <h1 className="text-3xl font-bold text-white">Lista Funkcjonariuszy</h1>
       
-      <Card className="border-lapd-gold shadow-lg">
+      <Card className="border-lapd-gold shadow-lg bg-white/5">
         <CardContent className="p-0">
           <Table>
             <TableHeader className="bg-lapd-navy">
@@ -106,18 +106,18 @@ const PersonnelPage = () => {
                 <TableRow><TableCell colSpan={4} className="text-center py-10"><Loader2 className="animate-spin h-8 w-8 mx-auto text-lapd-gold" /></TableCell></TableRow>
               ) : (
                 users.map(u => (
-                  <TableRow key={u.id} className="hover:bg-gray-50">
-                    <TableCell className="font-bold text-slate-800">#{u.badge_number} {u.first_name} {u.last_name}</TableCell>
-                    <TableCell><Badge variant="outline" className="border-slate-800 text-slate-800">{u.role_name}</Badge></TableCell>
+                  <TableRow key={u.id} className="hover:bg-white/10 border-white/5">
+                    <TableCell className="font-bold text-white">#{u.badge_number} {u.first_name} {u.last_name}</TableCell>
+                    <TableCell><Badge variant="outline" className="border-white/50 text-slate-300">{u.role_name}</Badge></TableCell>
                     <TableCell>
                       <div className="flex flex-wrap gap-1">
-                        {u.divisions.map(d => <Badge key={d.id} className="bg-lapd-gold text-slate-800 text-[10px] uppercase font-bold">{d.name}</Badge>)}
+                        {u.divisions.map(d => <Badge key={d.id} className="bg-lapd-gold text-lapd-navy text-[10px] uppercase font-bold">{d.name}</Badge>)}
                       </div>
                     </TableCell>
                     <TableCell className="text-right px-6 space-x-2">
                       <OfficerDossier targetOfficer={u} />
                       {isEditor && (
-                        <Button variant="ghost" size="sm" onClick={() => openEdit(u)} className="hover:bg-lapd-gold/20 text-slate-800">
+                        <Button variant="ghost" size="sm" onClick={() => openEdit(u)} className="hover:bg-lapd-gold/20 text-lapd-gold">
                           <Edit className="h-4 w-4" />
                         </Button>
                       )}
@@ -131,19 +131,19 @@ const PersonnelPage = () => {
       </Card>
 
       <Dialog open={!!editingUser} onOpenChange={() => !saving && setEditingUser(null)}>
-        <DialogContent className="border-lapd-gold">
-          <DialogHeader><DialogTitle className="text-slate-800 uppercase font-black">Edycja Dywizji</DialogTitle></DialogHeader>
+        <DialogContent className="border-lapd-gold bg-lapd-darker text-white">
+          <DialogHeader><DialogTitle className="text-lapd-gold uppercase font-black">Edycja Dywizji</DialogTitle></DialogHeader>
           <div className="grid gap-4 py-4">
             {divisions.map(d => (
-              <div key={d.id} className="flex items-center space-x-3 p-2 hover:bg-gray-50 rounded">
-                <Checkbox id={`div-${d.id}`} checked={selectedDivisions.includes(d.id)} onCheckedChange={(checked) => setSelectedDivisions(prev => checked ? [...prev, d.id] : prev.filter(id => id !== d.id))} />
-                <Label htmlFor={`div-${d.id}`} className="font-medium cursor-pointer flex-1 text-slate-800">{d.name}</Label>
+              <div key={d.id} className="flex items-center space-x-3 p-2 hover:bg-white/10 rounded">
+                <Checkbox id={`div-${d.id}`} checked={selectedDivisions.includes(d.id)} onCheckedChange={(checked) => setSelectedDivisions(prev => checked ? [...prev, d.id] : prev.filter(id => id !== d.id))} className="border-lapd-gold data-[state=checked]:bg-lapd-gold data-[state=checked]:text-lapd-navy" />
+                <Label htmlFor={`div-${d.id}`} className="font-medium cursor-pointer flex-1 text-white">{d.name}</Label>
               </div>
             ))}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setEditingUser(null)} disabled={saving}>Anuluj</Button>
-            <Button className="bg-lapd-navy text-lapd-gold font-bold" onClick={handleSaveDivisions} disabled={saving}>ZAPISZ</Button>
+            <Button variant="outline" className="bg-white/10 text-white hover:bg-white/20" onClick={() => setEditingUser(null)} disabled={saving}>Anuluj</Button>
+            <Button className="bg-lapd-gold text-lapd-navy font-bold" onClick={handleSaveDivisions} disabled={saving}>ZAPISZ</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
