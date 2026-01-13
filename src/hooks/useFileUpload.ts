@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { saveAttachmentMetadata, AttachmentMetadata } from "@/utils/attachments";
 import { compressImage } from "@/utils/imageCompression";
+import { uploadImgBB } from "@/api/upload-imgbb"; // Importujemy symulowaną funkcję API
 
 interface UploadOptions {
     reportId?: string;
@@ -26,7 +27,7 @@ export const useFileUpload = () => {
         return new Promise((resolve, reject) => {
             const reader = new FileReader();
             reader.readAsDataURL(file);
-            reader.onload = () => {
+            reader.onload = (event) => {
                 // Usuń prefiks 'data:image/webp;base64,'
                 const base64String = (reader.result as string).split(',')[1];
                 resolve(base64String);
@@ -53,26 +54,24 @@ export const useFileUpload = () => {
         const base64Image = await fileToBase64(fileToUpload);
         updateProgress(50);
 
-        // 3. Wysyłka do serwerowego endpointu (który komunikuje się z ImgBB)
-        const uploadResponse = await fetch("/api/files/upload-imgbb", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                base64Image: base64Image,
-                fileName: fileToUpload.name,
-                fileType: fileToUpload.type,
-                fileSize: fileToUpload.size,
-                ownerId: profile.id,
-                ...options,
-            }),
-        });
+        // 3. Wysyłka do serwerowego endpointu (symulacja)
+        const requestBody = {
+            base64Image: base64Image,
+            fileName: fileToUpload.name,
+            fileType: fileToUpload.type,
+            fileSize: fileToUpload.size,
+            ownerId: profile.id,
+            ...options,
+        };
 
-        if (!uploadResponse.ok) {
-            const errorData = await uploadResponse.json();
-            throw new Error(errorData.error || "Błąd przesyłania do ImgBB.");
+        // W środowisku Dyad wywołujemy funkcję bezpośrednio
+        const uploadResult = await uploadImgBB(requestBody);
+
+        if ('error' in uploadResult) {
+            throw new Error(uploadResult.error || "Błąd przesyłania do ImgBB.");
         }
 
-        const { fileUrl, displayUrl, size } = await uploadResponse.json();
+        const { fileUrl, displayUrl, size } = uploadResult;
         updateProgress(80);
 
         // 4. Zapisz metadane w Supabase (tylko jeśli to nie jest zdjęcie profilowe)
