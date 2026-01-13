@@ -1,6 +1,6 @@
--- Usuwamy tabele, aby zdefiniować je z nowymi ograniczeniami
-DROP TABLE IF EXISTS officer_pin_shares;
-DROP TABLE IF EXISTS officer_pins;
+-- Usuwamy tabele z CASCADE, aby automatycznie usunąć zależne polityki
+DROP TABLE IF EXISTS officer_pin_shares CASCADE;
+DROP TABLE IF EXISTS officer_pins CASCADE;
 
 -- 1. Tabela główna przypięć (Teczka)
 CREATE TABLE officer_pins (
@@ -29,7 +29,6 @@ ALTER TABLE officer_pins ENABLE ROW LEVEL SECURITY;
 ALTER TABLE officer_pin_shares ENABLE ROW LEVEL SECURITY;
 
 -- 5. Polityki dla officer_pins
-DROP POLICY IF EXISTS "View pins" ON officer_pins;
 CREATE POLICY "View pins" ON officer_pins FOR SELECT USING (
   author_id = auth.uid() OR 
   EXISTS (
@@ -38,21 +37,17 @@ CREATE POLICY "View pins" ON officer_pins FOR SELECT USING (
   )
 );
 
-DROP POLICY IF EXISTS "Insert pins" ON officer_pins;
 CREATE POLICY "Insert pins" ON officer_pins FOR INSERT WITH CHECK (
   author_id = auth.uid()
 );
 
-DROP POLICY IF EXISTS "Delete pins" ON officer_pins;
 CREATE POLICY "Delete pins" ON officer_pins FOR DELETE USING (
   author_id = auth.uid()
 );
 
 -- 6. Polityki dla officer_pin_shares
-DROP POLICY IF EXISTS "View shares" ON officer_pin_shares;
 CREATE POLICY "View shares" ON officer_pin_shares FOR SELECT USING (true);
 
-DROP POLICY IF EXISTS "Insert shares" ON officer_pin_shares;
 CREATE POLICY "Insert shares" ON officer_pin_shares FOR INSERT WITH CHECK (
   EXISTS (SELECT 1 FROM officer_pins WHERE id = pin_id AND author_id = auth.uid())
 );
